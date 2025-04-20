@@ -1,0 +1,8 @@
+[package]
+name = "Rustique"
+version = "0.1.0"
+edition = "2024"
+authors = ["tekunogosu"]
+
+[dependencies]
+clap = { version = "4.5.37", features = ["cargo", "color", "suggestions", "derive" ] }
