@@ -29,42 +29,42 @@ impl Display for StringOrInt {
 pub struct ModInfo {
     #[serde(default, alias = "Name")]
     pub name: String,
-    #[serde(default, rename = "type")]
+    #[serde(default, rename = "type", alias = "Type")]
     pub mod_type: StringOrInt,
 
     #[serde(default, rename = "modid", alias = "modId", alias = "ModId", alias = "ModID", alias = "modID")]
     pub mod_id: String,
-    #[serde(default)]
+    #[serde(default, alias = "Author")]
     pub version: Option<String>,
-    #[serde(default, rename = "networkVersion")]
+    #[serde(default, rename = "networkVersion", alias = "NetworkVersion", alias = "Networkversion", alias = "networkversion")]
     pub network_version: Option<String>,
-    #[serde(default, rename = "textureSize")]
+    #[serde(default, rename = "textureSize", alias = "TextureSize", alias = "Texturesize", alias = "texturesize")]
     pub texture_size: Option<u32>,
-    #[serde(default)]
+    #[serde(default, alias = "Description")]
     pub description: Option<String>,
-    #[serde(default)]
+    #[serde(default, alias = "Website")]
     pub website: Option<String>,
-    #[serde(default)]
+    #[serde(default, alias = "Authors")]
     pub authors: Option<Vec<String>>,
-    #[serde(default)]
+    #[serde(default, alias = "Contributors")]
     pub contributors: Option<Vec<String>>,
-    #[serde(default)]
+    #[serde(default, alias = "Side")]
     pub side: Option<String>,
-    #[serde(default, rename = "requiredOnClient")]
+    #[serde(default, rename = "requiredOnClient", alias = "RequiredOnClient", alias = "RequiredonClient", alias = "Requiredonclient", alias = "requiredonclient")]
     pub required_on_client: Option<bool>,
-    #[serde(default, rename = "requiredOnServer")]
+    #[serde(default, rename = "requiredOnServer", alias = "RequiredOnServer", alias = "RequiredonServer", alias = "Requiredonserver", alias = "requiredonserver")]
     pub required_on_server: Option<bool>,
-    #[serde(default)]
+    #[serde(default, alias = "Dependencies")]
     pub dependencies: Option<HashMap<String, String>>,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct ModDependency {
-    #[serde(default)]
-    pub name: String,
-    #[serde(default)]
-    pub version: String,
-}
+// #[derive(Deserialize, Serialize, Debug, Clone)]
+// pub struct ModDependency {
+//     #[serde(default, alias = "Name")]
+//     pub name: String,
+//     #[serde(default, alias = "Version")]
+//     pub version: String,
+// }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Mod {

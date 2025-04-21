@@ -7,9 +7,10 @@ use std::fs::{DirEntry, File};
 use std::io::{stdin, Read};
 use std::sync::{Arc, Mutex};
 use rayon::prelude::*;
+use ureq::get;
 use zip::ZipArchive;
 use crate::api_structs::ModInfo;
-use crate::utils::{ModOptions};
+use crate::utils::{get_case_insensitive, ModOptions};
 
 
 // TODO:: Should we handle mods that are in directories and not .zip files
@@ -65,8 +66,6 @@ pub fn list_installed(mod_dir: ModOptions) -> Result<Vec<ModInfo>, Box<dyn Error
 
     Ok(mods.lock().unwrap().clone())
 }
-
-
 
 // maybes**
 pub fn list_outdated() {}

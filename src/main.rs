@@ -89,13 +89,10 @@ enum Commands {
     List(ListArgs),
     Update(UpdateArgs),
     Changelog(ChangeLogArgs),
-    Install(InstallArgs)
+    Install(InstallArgs),
+    Info(ModInfoArgs),
 }
 
-#[derive(Args)]
-struct InstallArgs {
-    modid: Vec<String>,
-}
 
 #[derive(Args)]
 struct SyncArgs {
@@ -117,6 +114,19 @@ struct ChangeLogArgs {
     name: Option<String>,
 }
 
+#[derive(Args)]
+struct InstallArgs {
+    modid: Vec<String>,
+}
+
+#[derive(Args)]
+struct ModInfoArgs {
+    modid: String,
+}
+
+
+
+
 fn list() {
     println!("+-------------------+-------+---------+\n\
 | Mod               | Yours | Current |\n\
@@ -125,6 +135,9 @@ fn list() {
 | goblinears        | 2.1.0 | 2.1.1   |\n\
 +-------------------+-------+---------+");
 }
+
+// TODO: Add feature to notify user when the modinfo.json file is malformed
+
 
 fn main() {
 
@@ -139,10 +152,26 @@ fn main() {
         Commands::List(_name) => {
             match list_installed(ModOptions::default()) {
                 Ok(mut _mods) => {
-                    _mods.sort_by(|a,b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
-                    for info in _mods {
-                        eprintln!("{}: ID({}), {}", info.name.blue().bold(), info.mod_id.yellow(), info.description.unwrap_or_default().to_string().green());
+                    #[cfg(feature = "debug_mode")]
+                    {
+                        _mods.sort_by(|a,b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+                        for info in _mods {
+                            eprintln!("{}:, \n\tModtype: \t\t{},  \n\tModID: \t\t\t{}, \n\tVersion: \t\t{},\
+                                   \n\tnetwork_version: \t\t{}, \n\ttexture_size: \t\t{},  \n\tdescription: \t\t{}:, \
+                                   \n\twebsite: \t\t{}, \n\tauthors: \t\t{}, \n\tcontributors: \t\t{}, \n\tside: \t\t\t{}, \
+                                   \n\trequired_on_client: \t{}, \n\trequired_on_server: \t{}, \
+                                   \n\tdependencies: \t\t{:?}\
+                                   ",
+                                      info.name.blue().bold(), info.mod_type.to_string().bold(), info.mod_id.yellow(), info.version.unwrap_or_default(),
+                                      info.network_version.unwrap_or_default(), info.texture_size.unwrap_or_default(),
+                                      info.description.unwrap_or_default().green(),
+                                      info.website.unwrap_or_default(), info.authors.unwrap_or_default().join(","), info.contributors.unwrap_or_default().join(","), info.side.unwrap_or_default(),
+                                      info.required_on_client.unwrap_or_default(), info.required_on_server.unwrap_or_default(),
+                                      info.dependencies.unwrap_or_default()
+                            );
+                        }
                     }
+
                 },
                 _ => println!("No mods available to list"),
             }
@@ -164,6 +193,9 @@ fn main() {
         }
         Commands::Install(args) => {
             println!("install {:?}", args.modid);
+        }
+        Commands::Info(args) => {
+            println!("displaying stuff about the mod {:?}", args.modid);
         }
     }
 }
