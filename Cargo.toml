@@ -2,7 +2,15 @@
 name = "Rustique"
 version = "0.1.0"
 edition = "2024"
-authors = ["tekunogosu"]
+authors = ["tekunogosu","Violet4"]
 
 [dependencies]
 clap = { version = "4.5.37", features = ["cargo", "color", "suggestions", "derive" ] }
+colored = "3.0.0"
+rayon = "1.10.0"
+ureq = { version = "3.0.11", features = ["json"] }
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
+zip = "2.6.1"
+dirs = "6.0.0"
+serde_json5 = "0.2.1"

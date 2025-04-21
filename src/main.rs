@@ -1,5 +1,17 @@
-use clap::{Args, Parser, Subcommand};
+#![allow(unused_imports, dead_code)]
 
+mod sync;
+mod list;
+mod update;
+mod changelog;
+mod install;
+mod utils;
+mod api_structs;
+
+use clap::{Args, Parser, Subcommand, ColorChoice, CommandFactory, FromArgMatches, crate_authors};
+use colored::Colorize;
+use crate::utils::ModOptions;
+use crate::list::list_installed;
 /*
 
 ./vsupdate
@@ -59,15 +71,13 @@ Locations:
 * ~/.config/VintagestoryData/ModsByServer/192.168.1.228-42420/primitivesurvival_3.7.5.zip
 * vintagestory/Mods
 
-
-
  */
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 #[command(propagate_version = true)]
 struct Cli {
-    #[arg(short, long, default_value = "~/.config/VintageStory/Mods")]
+    #[arg(short, long, default_value = "~/.config/VintagestoryData/Mods")]
     mods_dir: String,
     #[command(subcommand)]
     command: Commands,
@@ -79,6 +89,12 @@ enum Commands {
     List(ListArgs),
     Update(UpdateArgs),
     Changelog(ChangeLogArgs),
+    Install(InstallArgs)
+}
+
+#[derive(Args)]
+struct InstallArgs {
+    modid: Vec<String>,
 }
 
 #[derive(Args)]
@@ -111,8 +127,8 @@ fn list() {
 }
 
 fn main() {
-    let cli = Cli::parse();
 
+    let cli = Cli::parse();
     // You can check for the existence of subcommands, and if found use their
     // matches just as you would the top level cmd
     println!("Mods dir: {:?}", cli.mods_dir);
@@ -121,7 +137,16 @@ fn main() {
             println!("Sync");
         }
         Commands::List(_name) => {
-            list();
+            match list_installed(ModOptions::default()) {
+                Ok(mut _mods) => {
+                    _mods.sort_by(|a,b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+                    for info in _mods {
+                        eprintln!("{}: ID({}), {}", info.name.blue().bold(), info.mod_id.yellow(), info.description.unwrap_or_default().to_string().green());
+                    }
+                },
+                _ => println!("No mods available to list"),
+            }
+
         }
         Commands::Update(name) => {
             if name.all {
@@ -136,6 +161,9 @@ fn main() {
         }
         Commands::Changelog(name) => {
             println!("list {:?}", name.name);
+        }
+        Commands::Install(args) => {
+            println!("install {:?}", args.modid);
         }
     }
 }
