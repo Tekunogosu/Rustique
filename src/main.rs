@@ -8,10 +8,12 @@ mod install;
 mod utils;
 mod api_structs;
 
+use std::path::PathBuf;
 use clap::{Args, Parser, Subcommand, ColorChoice, CommandFactory, FromArgMatches, crate_authors};
 use colored::Colorize;
-use crate::utils::ModOptions;
+use crate::utils::{get_expanded_path, RustiqueOptions};
 use crate::list::list_installed;
+use crate::sync::sync;
 /*
 
 ./vsupdate
@@ -77,8 +79,8 @@ Locations:
 #[command(version, about, long_about = None)]
 #[command(propagate_version = true)]
 struct Cli {
-    #[arg(short, long, default_value = "~/.config/VintagestoryData/Mods")]
-    mods_dir: String,
+    #[arg(short, long)]
+    mods_dir: Option<String>,
     #[command(subcommand)]
     command: Commands,
 }
@@ -91,6 +93,7 @@ enum Commands {
     Changelog(ChangeLogArgs),
     Install(InstallArgs),
     Info(ModInfoArgs),
+    Search(SearchMods),
 }
 
 
@@ -116,14 +119,18 @@ struct ChangeLogArgs {
 
 #[derive(Args)]
 struct InstallArgs {
-    modid: Vec<String>,
+    mod_id: Vec<String>,
 }
 
 #[derive(Args)]
 struct ModInfoArgs {
-    modid: String,
+    mod_id: String,
 }
 
+#[derive(Args)]
+struct SearchMods {
+
+}
 
 
 
@@ -145,32 +152,56 @@ fn main() {
     // You can check for the existence of subcommands, and if found use their
     // matches just as you would the top level cmd
     println!("Mods dir: {:?}", cli.mods_dir);
+
+
+    let mod_opts = if cli.mods_dir.is_none() {
+        RustiqueOptions::default()
+    } else {
+        RustiqueOptions {
+            mod_dir: get_expanded_path(PathBuf::from(cli.mods_dir.unwrap())),
+        }
+    };
+
+    // TODO: check for windows equiv
     match &cli.command {
+
+        // Database fields
+        // modid
+        // installed version
+        // latest version
+        // last sync time
+        // url to latest known version
+
         Commands::Sync(_name) => {
-            println!("Sync");
+            // Sync will add a rustique-sync.json to a valid mod_dir
+            match sync(mod_opts) {
+                Ok(_) => {}
+                Err(e) => {
+                    println!("{}", e);
+                }
+            }
         }
         Commands::List(_name) => {
-            match list_installed(ModOptions::default()) {
+
+            match list_installed(mod_opts) {
                 Ok(mut _mods) => {
-                    #[cfg(feature = "debug_mode")]
-                    {
-                        _mods.sort_by(|a,b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
-                        for info in _mods {
-                            eprintln!("{}:, \n\tModtype: \t\t{},  \n\tModID: \t\t\t{}, \n\tVersion: \t\t{},\
-                                   \n\tnetwork_version: \t\t{}, \n\ttexture_size: \t\t{},  \n\tdescription: \t\t{}:, \
-                                   \n\twebsite: \t\t{}, \n\tauthors: \t\t{}, \n\tcontributors: \t\t{}, \n\tside: \t\t\t{}, \
-                                   \n\trequired_on_client: \t{}, \n\trequired_on_server: \t{}, \
-                                   \n\tdependencies: \t\t{:?}\
-                                   ",
-                                      info.name.blue().bold(), info.mod_type.to_string().bold(), info.mod_id.yellow(), info.version.unwrap_or_default(),
-                                      info.network_version.unwrap_or_default(), info.texture_size.unwrap_or_default(),
-                                      info.description.unwrap_or_default().green(),
-                                      info.website.unwrap_or_default(), info.authors.unwrap_or_default().join(","), info.contributors.unwrap_or_default().join(","), info.side.unwrap_or_default(),
-                                      info.required_on_client.unwrap_or_default(), info.required_on_server.unwrap_or_default(),
-                                      info.dependencies.unwrap_or_default()
-                            );
-                        }
+                    _mods.sort_by(|a,b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+                    for info in _mods {
+                        eprintln!("{}:, \n\tModtype: \t\t{},  \n\tModID: \t\t\t{}, \n\tVersion: \t\t{},\
+                               \n\tNetwork_version: \t\t{}, \n\tTexture_size: \t\t{},  \n\tDescription: \t\t{}:, \
+                               \n\tWebsite: \t\t{}, \n\tAuthors: \t\t{}, \n\tContributors: \t\t{}, \n\tSide: \t\t\t{}, \
+                               \n\tRequired_on_client: \t{}, \n\tRequired_on_server: \t{}, \
+                               \n\tDependencies: \t\t{:?}\
+                               ",
+                                  info.name.blue().bold(), info.mod_type.to_string().bold(), info.mod_id.yellow(), info.version.unwrap_or_default(),
+                                  info.network_version.unwrap_or_default(), info.texture_size.unwrap_or_default(),
+                                  info.description.unwrap_or_default().green(),
+                                  info.website.unwrap_or_default(), info.authors.unwrap_or_default().join(","), info.contributors.unwrap_or_default().join(","), info.side.unwrap_or_default(),
+                                  info.required_on_client.unwrap_or_default(), info.required_on_server.unwrap_or_default(),
+                                  info.dependencies.unwrap_or_default()
+                        );
                     }
+
 
                 },
                 _ => println!("No mods available to list"),
@@ -192,10 +223,13 @@ fn main() {
             println!("list {:?}", name.name);
         }
         Commands::Install(args) => {
-            println!("install {:?}", args.modid);
+            println!("install {:?}", args.mod_id);
         }
         Commands::Info(args) => {
-            println!("displaying stuff about the mod {:?}", args.modid);
+            println!("displaying stuff about the mod {:?}", args.mod_id);
+        }
+        Commands::Search(_args )=> {
+            print!("Searching stuff");
         }
     }
 }

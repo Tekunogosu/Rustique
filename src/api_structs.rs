@@ -25,10 +25,15 @@ impl Display for StringOrInt {
     }
 }
 
+// Due to mod authors not following the modinfo.json spec for mods, we have to
+// put an alias for all fields found in modinfo.json file.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ModInfo {
     #[serde(default, alias = "Name")]
     pub name: String,
+
+    // StringOrInt is required because there are a few mod authors that use and Int
+    // instead of string for the type
     #[serde(default, rename = "type", alias = "Type")]
     pub mod_type: StringOrInt,
 
@@ -58,13 +63,6 @@ pub struct ModInfo {
     pub dependencies: Option<HashMap<String, String>>,
 }
 
-// #[derive(Deserialize, Serialize, Debug, Clone)]
-// pub struct ModDependency {
-//     #[serde(default, alias = "Name")]
-//     pub name: String,
-//     #[serde(default, alias = "Version")]
-//     pub version: String,
-// }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Mod {
