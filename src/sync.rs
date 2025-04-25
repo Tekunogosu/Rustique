@@ -42,7 +42,7 @@ pub struct ModSyncInfo {
 pub const SYNC_FILE_NAME: &str = "rustique-sync.json";
 
 
-fn parse_sync_file(dir: PathBuf) -> Result<RustiqueSyncJson, Box<dyn Error>> {
+pub fn parse_sync_file(dir: PathBuf) -> Result<RustiqueSyncJson, Box<dyn Error>> {
     let mut file = File::open(dir.join(SYNC_FILE_NAME))?;
     let mut file_contents = String::new();
     file.read_to_string(&mut file_contents)?;

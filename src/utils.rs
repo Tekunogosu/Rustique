@@ -84,6 +84,14 @@ fn box_error(error: String) -> Box<dyn Error> {
     Box::new(std::io::Error::new(std::io::ErrorKind::Other, error))
 }
 
+#[cfg(feature = "debug")]
+pub fn dlog(msg: &str) {
+    println!("DEBUG: {}", msg);
+}
+
+#[cfg(not(feature = "debug"))]
+pub fn dlog(_msg: &str) {}
+
 pub fn extract_zip_metadata(entry: PathBuf) -> Result<ModInfo, Box<dyn Error>> {
 
     if entry.is_dir() {
@@ -114,8 +122,7 @@ pub fn extract_zip_metadata(entry: PathBuf) -> Result<ModInfo, Box<dyn Error>> {
 }
 
 pub fn extract_all_mods_metadata(rustique_options: RustiqueOptions) -> Result<HashMap<String, ModInfo>, Box<dyn Error>> {
-    // TODO: check which platform we are on
-    println!("mod_dir: {:?}", rustique_options.mod_dir);
+
     let dir = fs::read_dir(rustique_options.mod_dir.unwrap())?;
     let mut entries_vec: Vec<DirEntry> = dir.filter_map(|e| e.ok()).collect();
 
@@ -137,7 +144,9 @@ pub fn extract_all_mods_metadata(rustique_options: RustiqueOptions) -> Result<Ha
 
         })() {
             Ok(mod_info) => {mods.lock().unwrap().insert(filename, mod_info);}
-            Err(e) => println!("Error processing mod: {}", e),
+            Err(e) =>  {
+                    dlog(&format!("{}", e))
+            },
         }
     });
 

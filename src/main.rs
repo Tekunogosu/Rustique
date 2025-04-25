@@ -15,6 +15,7 @@ use colored::Colorize;
 use crate::utils::{get_expanded_path, RustiqueOptions};
 use crate::list::list_installed;
 use crate::sync::sync;
+use crate::update::update;
 /*
 
 ./vsupdate
@@ -152,7 +153,6 @@ fn main() {
     let cli = Cli::parse();
     // You can check for the existence of subcommands, and if found use their
     // matches just as you would the top level cmd
-    println!("Mods dir: {:?}", cli.mods_dir);
 
 
     let mod_opts = if cli.mods_dir.is_none() {
@@ -183,7 +183,7 @@ fn main() {
         }
         Commands::Update(name) => {
             if name.all {
-                println!("Updating all");
+                update(mod_opts).unwrap();
             }
             else if name.name.is_empty() {
                 println!("Must specify at least one package to update!");
