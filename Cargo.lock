@@ -16,6 +16,7 @@ dependencies = [
  "serde_json",
  "serde_json5",
  "ureq",
+ "url",
  "zip",
 ]
 
