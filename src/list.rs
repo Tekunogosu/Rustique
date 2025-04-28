@@ -109,7 +109,8 @@ pub fn list_installed(mod_dir: &PathBuf, only_updated: bool) -> Result<(), Rusti
             .unwrap().keys()
             .filter(|e|e.to_lowercase().ne("game") && !mod_id_list.contains(e))
             .cloned().collect();
-        
+
+
         row.add_cell(Cell::new(
             missing_dependencies.join(", ").as_str()
         ).fg(Color::Red).add_attribute(Attribute::SlowBlink).add_attribute(Attribute::Bold))

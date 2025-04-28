@@ -66,10 +66,9 @@ pub fn get_current_time() -> String {
 // the path,
 // TODO: Need handle windows default
 pub fn get_expanded_path(dir: PathBuf) -> PathBuf {
-    let out = PathBuf::new();
     if dir.starts_with("~/") {
         if let Some(home) = home_dir() {
-            return out.join(home).join(dir.strip_prefix("~/").unwrap());
+            return PathBuf::new().join(home).join(dir.strip_prefix("~/").unwrap());
         }
     }
 
@@ -172,13 +171,16 @@ pub fn delete_file(file: &Path) -> Result<(), RustiqueError> {
                 source: e,
             })?)
     } else {
-        Ok(dlog(format!("File {} no longer exists..", file.display()).as_str()))
+        Err(RustiqueError::SimpleError(format!("File {} no longer exists..", file.display())))
     }
 }
 
 pub fn download_mod(mod_dir: &PathBuf, latest_download_url: &String) -> Result<PathBuf, RustiqueError> {
 
-    let url = Url::parse(latest_download_url.as_str()).map_err(|e| RustiqueError::ParseError(e))?;
+    let filename = &latest_download_url.split('=').last().unwrap();
+
+    let url = Url::parse(latest_download_url.as_str())
+        .map_err(|e| RustiqueError::ParseError(e))?;
 
     dlog(format!("Trying to download url: {}", url.clone().to_string()).as_str());
     let response = ApiClient::new().get_request(&url.to_string())
@@ -195,20 +197,23 @@ pub fn download_mod(mod_dir: &PathBuf, latest_download_url: &String) -> Result<P
             source: e,
         })?;
 
-    let file_path = mod_dir.clone().join(&latest_download_url.split('=').last().unwrap());
     // create the file and write the bytes to it
-    let filename_fix = file_path.to_string_lossy().replace(" ", "_");
-    let path = Path::new(&filename_fix);
+    let filename_fix = mod_dir.clone().join(filename).to_string_lossy().replace(" ", "_");
+    let file_path = PathBuf::from(filename_fix);
 
-    let mut file = File::create(path)
+    if file_path.exists() {
+        return Err(RustiqueError::SimpleError(format!("File {} already exists.", file_path.display())))
+    }
+
+    let mut file = File::create(&file_path)
         .map_err(|e |  RustiqueError::IoError{
-            context: format!("Unable to create file {}", path.to_string_lossy()),
+            context: format!("Unable to create file {}", file_path.to_string_lossy()),
             source: e
         })?;
 
     file.write_all(&bytes)
         .map_err(|e| RustiqueError::IoError {
-            context: format!("Failure while writing to byte array for {}", path.to_string_lossy()),
+            context: format!("Failure while writing to byte array for {}", file_path.to_string_lossy()),
             source: e
         })?;
 

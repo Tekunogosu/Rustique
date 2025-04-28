@@ -15,15 +15,15 @@ pub struct Cli {
 #[derive(Subcommand)]
 pub enum Commands {
     #[command(about = "Checks with the VintageStory mods website for any updates to mods you have installed. Run update after this command to update your mods")]
-    Sync(SyncArgs),
+    Sync,
 
-    #[command(about = "List installed mods and their versions. Run sync first to show latest version of the mod.")]
+    #[command(about = "List installed mods and their versions and any missing dependencies. Running sync first will show any available updates to your mods")]
     List(ListArgs),
 
     #[command(about = "Updates a specific mod OR all mods installed. Runs sync after completion")]
     Update(UpdateArgs),
 
-    #[command(about = "View the changelogs for a installed mod")]
+    #[command(about = "View the changelogs for a installed mod (Not Implemented)")]
     Changelog(ChangeLogArgs),
 
     #[command(about = "Install a specific mod. Must use the mod_id, Example: ./Rustique install alchemy")]
@@ -32,18 +32,19 @@ pub enum Commands {
     #[command(about = "Shows values from the modinfo.json file inside the mod zip")]
     Info(ModInfoArgs),
 
-    #[command(about = "Search the mob website for mobs.")]
+    #[command(about = "Search the mob website for mobs. (Not implemented)")]
     Search(SearchMods),
 
+    #[command(about = "Work in progress")]
     ModPack {
         #[clap(subcommand)]
         command: ModpackCommands,
     },
 }
 
-#[derive(Args)]
-pub struct SyncArgs {
-}
+// #[derive(Args)]
+// pub struct SyncArgs {
+// }
 
 #[derive(Args)]
 pub struct ListArgs {
@@ -56,6 +57,7 @@ pub struct ListArgs {
 pub struct UpdateArgs {
 
     /// Update specific mod, must be mod_id. Example: ./Rustique update alchemy
+    #[arg(num_args = 1..)]
     pub(crate) mod_ids: Vec<String>,
 
     /// Update all mods, don't set a <name>. Example: ./Rustique update --all
@@ -63,7 +65,7 @@ pub struct UpdateArgs {
     pub(crate) all: bool,
 
     /// Update mods but keep old version.
-    #[arg(short, long)]
+    #[arg(short, long, default_value = "false")]
     pub(crate) keep_old_files: bool
 }
 
@@ -74,9 +76,11 @@ pub struct ChangeLogArgs {
 
 #[derive(Args)]
 pub struct InstallArgs {
+    /// List all the mods you want to install with a space between each mod. Example ./Rustique install alchemy combatoverhaul
     #[arg(num_args = 1..)]
     pub(crate) mod_ids: Vec<String>,
 
+    /// Setting this flag will prevent Rustique from installing the dependencies found during installation
     #[arg(short, long, default_value = "false")]
     pub(crate) ignore_dependencies: bool,
 }
