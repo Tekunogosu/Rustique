@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 use zip::result::ZipError;
 use zip::ZipArchive;
+use crate::aliases::{ModFileName, ModID, ModVersion};
 use crate::api::ApiClient;
 use crate::api_structs::ModInfo;
 use crate::rustique_errors::RustiqueError;
@@ -55,6 +56,11 @@ impl RustiqueOptions {
     }
 }
 
+#[derive(Clone, Debug)]
+pub enum ModDownload {
+    ModID(String),
+    DownloadURL(String),
+}
 
 pub fn get_current_time() -> String {
     let now = SystemTime::now();
@@ -84,6 +90,21 @@ pub fn _get_case_insensitive<'a>(obj: &'a serde_json::Value, key: &str) -> Optio
         None
     }
 }
+
+pub fn extract_valid_dependencies(
+    dependencies: Option<HashMap<ModID, ModVersion>>,
+    excluded_ids: &[String],
+) -> Vec<ModID> {
+    let default_exclusions = ["game", "survival", "creative"];
+
+    dependencies.unwrap_or_default()
+        .keys()
+        .filter(|mod_id|
+            !default_exclusions.contains(&mod_id.to_lowercase().as_str())
+            && !excluded_ids.contains(mod_id)
+        ).cloned().collect()
+}
+
 
 #[cfg(feature = "debug")]
 pub fn dlog(msg: &str) {
@@ -137,7 +158,7 @@ pub fn extract_zip_metadata(entry: PathBuf) -> Result<ModInfo, RustiqueError> {
     Ok(mod_info)
 }
 
-pub fn extract_all_mods_metadata(mod_dir: &PathBuf) -> Result<HashMap<String, ModInfo>, RustiqueError> {
+pub fn extract_all_mods_metadata(mod_dir: &PathBuf) -> Result<HashMap<ModFileName, ModInfo>, RustiqueError> {
 
     let dir = fs::read_dir(mod_dir)
         .map_err(|e| RustiqueError::IoError {
@@ -147,7 +168,7 @@ pub fn extract_all_mods_metadata(mod_dir: &PathBuf) -> Result<HashMap<String, Mo
 
     let entries_vec: Vec<DirEntry> = dir.filter_map(|e| e.ok()).collect();
 
-    let mods = Arc::new(Mutex::new(HashMap::<String, ModInfo>::new()));
+    let mods = Arc::new(Mutex::new(HashMap::<ModFileName, ModInfo>::new()));
 
     entries_vec.par_iter().for_each(|entry| {
         let filename = entry.file_name().to_string_lossy().to_string();
@@ -175,17 +196,27 @@ pub fn delete_file(file: &Path) -> Result<(), RustiqueError> {
     }
 }
 
-pub fn download_mod(mod_dir: &PathBuf, latest_download_url: &String) -> Result<PathBuf, RustiqueError> {
+pub fn download_mod(mod_dir: &PathBuf, download_url: &String) -> Result<ModInfo, RustiqueError> {
 
-    let filename = &latest_download_url.split('=').last().unwrap();
+    // This is a bit ugly.. but for now it works
+    let filename_before = &download_url.split('=').last().unwrap();
+    let file_path_before = PathBuf::from(mod_dir.clone().join(filename_before));
 
-    let url = Url::parse(latest_download_url.as_str())
+    // Replace any spaces in the downloaded file with _ . This makes it easier to process later
+    let filename_fix = mod_dir.clone().join(filename_before).to_string_lossy().replace(" ", "_");
+    let file_path = PathBuf::from(filename_fix);
+
+    if file_path.exists() && file_path_before.exists() {
+        return Err(RustiqueError::SimpleError(format!("File {} already exists.", file_path.display())))
+    }
+
+    let url = Url::parse(download_url.as_str())
         .map_err(|e| RustiqueError::ParseError(e))?;
 
     dlog(format!("Trying to download url: {}", url.clone().to_string()).as_str());
     let response = ApiClient::new().get_request(&url.to_string())
         .map_err(|e| RustiqueError::ApiError {
-            context: format!("Error occurred during GET request of {}", latest_download_url.red()),
+            context: format!("Error occurred during GET request of {}", download_url.red()),
             source: e
         })?;
 
@@ -193,20 +224,12 @@ pub fn download_mod(mod_dir: &PathBuf, latest_download_url: &String) -> Result<P
 
     response.into_body().into_reader().read_to_end(&mut bytes)
         .map_err(|e| RustiqueError::IoError {
-            context: format!("Failure reading response from API {}", latest_download_url.red()),
+            context: format!("Failure reading response from API {}", download_url.red()),
             source: e,
         })?;
 
-    // create the file and write the bytes to it
-    let filename_fix = mod_dir.clone().join(filename).to_string_lossy().replace(" ", "_");
-    let file_path = PathBuf::from(filename_fix);
-
-    if file_path.exists() {
-        return Err(RustiqueError::SimpleError(format!("File {} already exists.", file_path.display())))
-    }
-
     let mut file = File::create(&file_path)
-        .map_err(|e |  RustiqueError::IoError{
+        .map_err(|e| RustiqueError::IoError {
             context: format!("Unable to create file {}", file_path.to_string_lossy()),
             source: e
         })?;
@@ -219,5 +242,10 @@ pub fn download_mod(mod_dir: &PathBuf, latest_download_url: &String) -> Result<P
 
     dlog(format!("File downloaded to {}", file_path.display()).as_str());
 
-    Ok(file_path)
+    Ok(extract_zip_metadata(file_path)?)
+}
+
+pub fn get_installed_mods(mod_dir: &PathBuf) -> Result<Vec<ModID>, RustiqueError> {
+    let metadata = extract_all_mods_metadata(mod_dir)?;
+    Ok(metadata.values().map(|mod_info| mod_info.mod_id.clone()).collect::<Vec<ModID>>())
 }

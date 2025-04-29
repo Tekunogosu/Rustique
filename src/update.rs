@@ -5,11 +5,12 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use crate::api::ApiClient;
 use crate::sync::{parse_sync_file, ModSyncInfo};
-use crate::utils::{delete_file, dlog, RustiqueOptions, download_mod};
+use crate::utils::{delete_file, dlog, RustiqueOptions, download_mod, ModDownload};
 use rayon::prelude::*;
 use std::process::exit;
 use colored::Colorize;
 use url::{form_urlencoded, Url};
+use crate::install::{install_mod};
 use crate::rustique_errors::RustiqueError;
 
 pub fn update_mods(mod_dir: &PathBuf, update_mod_ids: Vec<String>, keep_old_files: bool) -> Result<(), RustiqueError> {
@@ -52,7 +53,7 @@ pub fn update_mods(mod_dir: &PathBuf, update_mod_ids: Vec<String>, keep_old_file
                         None
                     };
 
-                    update_mod(mod_dir, &mod_sync_info.latest_download_url, old_filename)
+                    update_mod(mod_dir, mod_sync_info.latest_download_url.clone(), old_filename)
 
                 } else {
                     Ok(())
@@ -71,9 +72,11 @@ pub fn update_mods(mod_dir: &PathBuf, update_mod_ids: Vec<String>, keep_old_file
     Ok(())
 }
 
-pub fn update_mod(mod_dir: &PathBuf, latest_download_url: &String, old_filename: Option<String>) -> Result<(), RustiqueError> {
+pub fn update_mod(mod_dir: &PathBuf, latest_download_url: String, old_filename: Option<String>) -> Result<(), RustiqueError> {
 
-    download_mod(mod_dir, latest_download_url)?;
+    // download_mod(mod_dir, latest_download_url)?;
+
+    install_mod(mod_dir, ModDownload::DownloadURL(latest_download_url), None)?;
 
     if let Some(old_filename) = old_filename {
         let old_filepath = &mod_dir.clone().join(old_filename.to_string());

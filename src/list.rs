@@ -1,6 +1,6 @@
 use crate::api_structs::ModInfo;
 use crate::sync::{parse_sync_file, RustiqueSyncJson};
-use crate::utils::{RustiqueOptions, extract_all_mods_metadata, extract_zip_metadata};
+use crate::utils::{RustiqueOptions, extract_all_mods_metadata, extract_zip_metadata, extract_valid_dependencies};
 use comfy_table::{Attribute, Cell, Color, ContentArrangement, Row, Table};
 use rayon::prelude::*;
 use std::error::Error;
@@ -14,6 +14,7 @@ use std::sync::{Arc, Mutex};
 use colored::Colorize;
 use ureq::get;
 use zip::ZipArchive;
+use crate::aliases::ModID;
 use crate::rustique_errors::RustiqueError;
 
 fn setup_table_from_sync(sync_data: &Result<RustiqueSyncJson, RustiqueError>) -> Table {
@@ -32,9 +33,10 @@ fn setup_table_from_sync(sync_data: &Result<RustiqueSyncJson, RustiqueError>) ->
     }
 
     header
+        .add_cell(Cell::new("Dependencies").add_attribute(Attribute::Bold).fg(Color::Blue))
         .add_cell(Cell::new("Missing Dependencies").add_attribute(Attribute::Bold).fg(Color::Blue))
-        .add_cell(Cell::new("Description").add_attribute(Attribute::Bold).fg(Color::Blue))
-        .add_cell(Cell::new("Website").add_attribute(Attribute::Bold).fg(Color::Blue));
+        .add_cell(Cell::new("Description").add_attribute(Attribute::Bold).fg(Color::Blue));
+        // .add_cell(Cell::new("Website").add_attribute(Attribute::Bold).fg(Color::Blue));
 
     table.add_row(header);
 
@@ -77,15 +79,16 @@ pub fn list_installed(mod_dir: &PathBuf, only_updated: bool) -> Result<(), Rusti
         return Ok(());
     }
 
-    let mod_id_list: Vec<String> = metadata.clone().into_iter().map(|mod_info| mod_info.mod_id.clone()).collect();
+    let mod_id_list: Vec<ModID> = metadata.clone()
+        .into_iter().map(|mod_info| mod_info.mod_id.clone()).collect();
 
     metadata.into_iter().for_each(|mod_info| {
         let mut row = Row::new();
-        row.add_cell(Cell::new(&mod_info.name).add_attribute(Attribute::Bold).fg(Color::Blue))
+        row.add_cell(Cell::new(&mod_info.name).fg(Color::Yellow))
             .add_cell(Cell::new(&mod_info.mod_id))
             .add_cell(Cell::new(
                 mod_info.version.as_ref().unwrap_or(&"".to_string()),
-            ));
+            ).add_attribute(Attribute::Dim));
 
         if let Some(data) = &sync_data_unwrapped {
             if let Some(sync) = data.rustique_sync.get(mod_info.mod_id.as_str()) {
@@ -95,9 +98,9 @@ pub fn list_installed(mod_dir: &PathBuf, only_updated: bool) -> Result<(), Rusti
                 let mut cell = Cell::new(&sync.latest_known_version.to_string());
 
                 if &latest_version == current_version {
-                    cell = cell.add_attribute(Attribute::Bold).fg(Color::Green);
+                    cell = cell.fg(Color::Green).add_attribute(Attribute::Dim);
                 } else {
-                    cell = cell.fg(Color::Red);
+                    cell = cell.add_attribute(Attribute::Bold).fg(Color::Red);
                 }
                 row.add_cell(cell);
             } else {
@@ -105,21 +108,25 @@ pub fn list_installed(mod_dir: &PathBuf, only_updated: bool) -> Result<(), Rusti
             }
         }
 
-        let missing_dependencies: Vec<String> = mod_info.dependencies.clone()
-            .unwrap_or_default().keys()
-            .filter(|e|e.to_lowercase().ne("game") && !mod_id_list.contains(e))
-            .cloned().collect();
+        let missing_dependencies = extract_valid_dependencies(mod_info.dependencies.clone(), &mod_id_list);
 
 
-        row.add_cell(Cell::new(
-            missing_dependencies.join(", ").as_str()
+
+        row.add_cell(
+            Cell::new(
+                extract_valid_dependencies(mod_info.dependencies.clone(), &[]).join(",")
+            )
+        ).add_cell(Cell::new(
+                missing_dependencies.join(", ").as_str()
         ).fg(Color::Red).add_attribute(Attribute::SlowBlink).add_attribute(Attribute::Bold))
             .add_cell(Cell::new(
             mod_info.description.as_ref().unwrap_or(&"".to_string()),
-        )).add_cell(Cell::new(
-            mod_info.website.as_ref().unwrap_or(&"".to_string()),
         ));
 
+        //     .add_cell(Cell::new(
+        //     mod_info.website.as_ref().unwrap_or(&"".to_string()),
+        // ));
+        //
         table.add_row(row);
     });
 
@@ -127,3 +134,5 @@ pub fn list_installed(mod_dir: &PathBuf, only_updated: bool) -> Result<(), Rusti
 
     Ok(())
 }
+
+

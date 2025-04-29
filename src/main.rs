@@ -12,14 +12,16 @@ mod cli_commands;
 mod modpack_commands;
 mod rustique_errors;
 
+mod aliases;
+
 use std::error::Error;
 use std::path::PathBuf;
 use std::process::exit;
 use clap::{Args, Parser, Subcommand, ColorChoice, CommandFactory, FromArgMatches, crate_authors};
 use colored::Colorize;
 use crate::cli_commands::{Cli, Commands};
-use crate::install::{install_mod, install_mods};
-use crate::utils::{dlog, get_expanded_path, RustiqueOptions};
+use crate::install::{install_missing_dependencies, install_mod, install_mods};
+use crate::utils::{dlog, get_expanded_path, ModDownload, RustiqueOptions};
 use crate::list::list_installed;
 use crate::modpack_commands::ModpackCommands;
 use crate::sync::sync;
@@ -80,9 +82,14 @@ fn main() {
         }
         Commands::Install(args) => {
             if args.mod_ids.len() > 1 {
-                match install_mods(mod_opts.mod_dir.as_ref().unwrap(), args.mod_ids.clone(), args.ignore_dependencies) {
+                match install_mods(mod_opts.mod_dir.as_ref().unwrap(), args.mod_ids.clone()) {
                     Ok(_) => {
-                        eprintln!("{}", "Mods successfully installed!".bold().green());
+                        if args.mod_ids.len() > 1 {
+                            eprintln!("{}", "Mods successfully installed!".bold().green());
+                        } else {
+                            eprintln!("{}", "Mod successfully installed!".bold().green());
+                        }
+
                         handle_sync_call(mod_opts.mod_dir.as_ref().unwrap());
                     }
                     Err(e) => {
@@ -90,21 +97,18 @@ fn main() {
                         exit(1);
                     }
                 }
-            } else if args.mod_ids.len() == 1 {
-                match install_mod(mod_opts.mod_dir.as_ref().unwrap(), &args.mod_ids[0].clone(), args.ignore_dependencies, None) {
+            }
+
+            if !args.ignore_dependencies || args.missing_dependencies {
+                match install_missing_dependencies(mod_opts.mod_dir.as_ref().unwrap()) {
                     Ok(_) => {
-                        eprintln!("{}", "Mod successfully installed!".bold().green());
-                        handle_sync_call(mod_opts.mod_dir.as_ref().unwrap());
+                        eprintln!("{}", "All dependencies resolved..".bold().green());
                     }
                     Err(e) => {
                         println!("{}", e.to_string());
-                        // eprintln!("Error installing mod {}: {}", args.mod_ids[0], e.to_string());
                         exit(1);
                     }
                 }
-            } else {
-                eprintln!("{}", "No mods specified..".bold().red());
-                exit(1);
             }
         }
         Commands::Info(args) => {

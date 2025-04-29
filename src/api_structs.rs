@@ -3,6 +3,8 @@ use std::fmt::Display;
 use serde::{Deserialize, Serialize};
 use ureq::http::StatusCode;
 
+use crate::aliases::{ModID, ModVersion};
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(untagged)]
 pub enum StringOrInt {
@@ -39,9 +41,9 @@ pub struct ModInfo {
     pub mod_type: StringOrInt,
 
     #[serde(default, rename = "modid", alias = "modId", alias = "ModId", alias = "ModID", alias = "modID")]
-    pub mod_id: String,
+    pub mod_id: ModID,
     #[serde(default, alias = "Version")]
-    pub version: Option<String>,
+    pub version: Option<ModVersion>,
     #[serde(default, rename = "networkVersion", alias = "NetworkVersion", alias = "Networkversion", alias = "networkversion")]
     pub network_version: Option<String>,
     #[serde(default, rename = "textureSize", alias = "TextureSize", alias = "Texturesize", alias = "texturesize")]
@@ -61,7 +63,7 @@ pub struct ModInfo {
     #[serde(default, rename = "requiredOnServer", alias = "RequiredOnServer", alias = "RequiredonServer", alias = "Requiredonserver", alias = "requiredonserver")]
     pub required_on_server: Option<bool>,
     #[serde(default, alias = "Dependencies")]
-    pub dependencies: Option<HashMap<String, String>>,
+    pub dependencies: Option<HashMap<ModID, ModVersion>>,
 }
 
 
