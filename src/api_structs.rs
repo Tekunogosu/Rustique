@@ -5,7 +5,7 @@ use ureq::http::StatusCode;
 
 use crate::aliases::{ModID, ModVersion};
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, Hash, PartialEq)]
 #[serde(untagged)]
 pub enum StringOrInt {
     String(String),
@@ -30,7 +30,7 @@ impl Display for StringOrInt {
 
 // Due to mod authors not following the modinfo.json spec for mods, we have to
 // put an alias for all fields found in modinfo.json file.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct ModInfo {
     #[serde(default, alias = "Name")]
     pub name: String,

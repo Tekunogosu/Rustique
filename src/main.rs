@@ -14,13 +14,15 @@ mod rustique_errors;
 
 mod aliases;
 
+use std::collections::HashSet;
 use std::error::Error;
 use std::path::PathBuf;
 use std::process::exit;
 use clap::{Args, Parser, Subcommand, ColorChoice, CommandFactory, FromArgMatches, crate_authors};
 use colored::Colorize;
+use crate::aliases::ModID;
 use crate::cli_commands::{Cli, Commands};
-use crate::install::{install_missing_dependencies, install_mod, install_mods};
+use crate::install::{install_missing_dependencies, install_mod, install_mods, InstallOrUpdate};
 use crate::utils::{dlog, get_expanded_path, ModDownload, RustiqueOptions};
 use crate::list::list_installed;
 use crate::modpack_commands::ModpackCommands;
@@ -82,7 +84,8 @@ fn main() {
         }
         Commands::Install(args) => {
             if args.mod_ids.len() > 1 {
-                match install_mods(mod_opts.mod_dir.as_ref().unwrap(), args.mod_ids.clone()) {
+                let mod_ids: HashSet<ModID> = args.mod_ids.iter().cloned().collect();
+                match install_mods(mod_opts.mod_dir.as_ref().unwrap(), InstallOrUpdate::Install(mod_ids)) {
                     Ok(_) => {
                         if args.mod_ids.len() > 1 {
                             eprintln!("{}", "Mods successfully installed!".bold().green());
@@ -99,8 +102,9 @@ fn main() {
                 }
             }
 
-            if !args.ignore_dependencies || args.missing_dependencies {
-                match install_missing_dependencies(mod_opts.mod_dir.as_ref().unwrap()) {
+            if args.missing_dependencies {
+
+                match install_missing_dependencies(mod_opts.mod_dir.as_ref().unwrap(), None) {
                     Ok(_) => {
                         eprintln!("{}", "All dependencies resolved..".bold().green());
                     }

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::{fs, io};
 use std::fs::{DirEntry, File};
@@ -91,17 +91,19 @@ pub fn _get_case_insensitive<'a>(obj: &'a serde_json::Value, key: &str) -> Optio
     }
 }
 
-pub fn extract_valid_dependencies(
+// this function filters out any unwanted dependencies
+pub fn find_missing_dependencies(
     dependencies: Option<HashMap<ModID, ModVersion>>,
-    excluded_ids: &[String],
+    excluded_ids: Option<&HashSet<ModID>>,
 ) -> Vec<ModID> {
     let default_exclusions = ["game", "survival", "creative"];
-
+    let empty_set :HashSet<ModID> = HashSet::new();
+    let excluded = excluded_ids.unwrap_or(&empty_set);
     dependencies.unwrap_or_default()
         .keys()
         .filter(|mod_id|
             !default_exclusions.contains(&mod_id.to_lowercase().as_str())
-            && !excluded_ids.contains(mod_id)
+            && !excluded.contains(&mod_id.to_lowercase().to_string())
         ).cloned().collect()
 }
 
@@ -243,9 +245,4 @@ pub fn download_mod(mod_dir: &PathBuf, download_url: &String) -> Result<ModInfo,
     dlog(format!("File downloaded to {}", file_path.display()).as_str());
 
     Ok(extract_zip_metadata(file_path)?)
-}
-
-pub fn get_installed_mods(mod_dir: &PathBuf) -> Result<Vec<ModID>, RustiqueError> {
-    let metadata = extract_all_mods_metadata(mod_dir)?;
-    Ok(metadata.values().map(|mod_info| mod_info.mod_id.clone()).collect::<Vec<ModID>>())
 }

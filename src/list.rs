@@ -1,6 +1,7 @@
+use std::collections::HashSet;
 use crate::api_structs::ModInfo;
 use crate::sync::{parse_sync_file, RustiqueSyncJson};
-use crate::utils::{RustiqueOptions, extract_all_mods_metadata, extract_zip_metadata, extract_valid_dependencies};
+use crate::utils::{RustiqueOptions, extract_all_mods_metadata, extract_zip_metadata, find_missing_dependencies};
 use comfy_table::{Attribute, Cell, Color, ContentArrangement, Row, Table};
 use rayon::prelude::*;
 use std::error::Error;
@@ -79,7 +80,7 @@ pub fn list_installed(mod_dir: &PathBuf, only_updated: bool) -> Result<(), Rusti
         return Ok(());
     }
 
-    let mod_id_list: Vec<ModID> = metadata.clone()
+    let mod_id_list: HashSet<ModID> = metadata.clone()
         .into_iter().map(|mod_info| mod_info.mod_id.clone()).collect();
 
     metadata.into_iter().for_each(|mod_info| {
@@ -108,13 +109,13 @@ pub fn list_installed(mod_dir: &PathBuf, only_updated: bool) -> Result<(), Rusti
             }
         }
 
-        let missing_dependencies = extract_valid_dependencies(mod_info.dependencies.clone(), &mod_id_list);
+        let missing_dependencies = find_missing_dependencies(mod_info.dependencies.clone(), Option::from(&mod_id_list));
 
 
 
         row.add_cell(
             Cell::new(
-                extract_valid_dependencies(mod_info.dependencies.clone(), &[]).join(",")
+                find_missing_dependencies(mod_info.dependencies.clone(), None).join(",")
             )
         ).add_cell(Cell::new(
                 missing_dependencies.join(", ").as_str()

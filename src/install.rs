@@ -1,16 +1,24 @@
-use crate::aliases::{ModID, ModVersion};
+use crate::aliases::{ModFileName, ModID, ModVersion};
 use crate::api::ApiClient;
 use crate::rustique_errors::RustiqueError;
 use crate::utils::{
-    ModDownload, dlog, download_mod, extract_all_mods_metadata, extract_valid_dependencies,
-    extract_zip_metadata, get_installed_mods,
+    ModDownload, dlog, download_mod, extract_all_mods_metadata, find_missing_dependencies,
+    extract_zip_metadata,
 };
 use colored::Colorize;
 use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 use std::path::PathBuf;
+use std::process::exit;
 use std::sync::{Arc, Mutex};
+use crate::api_structs::ModInfo;
+use crate::sync::ModSyncInfo;
+
+pub enum InstallOrUpdate {
+    Install(HashSet<ModID>),
+    Update(HashMap<ModID, ModSyncInfo>),
+}
 
 pub fn install_mod(
     mod_dir: &PathBuf,
@@ -20,7 +28,7 @@ pub fn install_mod(
     // get mod_id from api so we have the latest download_url
     let api = api.unwrap_or_else(ApiClient::new);
 
-    println!("ModDownload: {:?}", mod_to_download);
+    // println!("ModDownload: {:?}", mod_to_download);
 
     let download_url = match mod_to_download.clone() {
         ModDownload::ModID(mod_id) => {
@@ -42,63 +50,87 @@ pub fn install_mod(
         Err(e) => eprintln!("Failed to download mod: {}", e.to_string()),
     }
 
-    // install_mods handles the multithreading and dependencies when used
-    // but update has its own multithreading, so we only call this here if we get 1 download URL
-    // which is assumed to be update
-    // TODO:: This is pretty ugly tbh and could use a good refactor..
-    if matches!(mod_to_download, ModDownload::DownloadURL(_)) {
-        install_missing_dependencies(mod_dir)?
+    Ok(())
+}
+
+
+pub fn install_mods(mod_dir: &PathBuf, mods: InstallOrUpdate) -> Result<(), RustiqueError> {
+    let api = ApiClient::new();
+
+    // this vec is to tell the install_missing_dependencies which mods it update deps for
+    let mut dep_filter_list: HashSet<ModID> = HashSet::new();
+    // this is the actual update list of the mods that will be sent to install_mod(..)
+    let mod_update_list: Vec<ModDownload>;
+
+    // Prepare the two lists we need to proceed
+    match mods {
+        InstallOrUpdate::Update(mod_ids) => {
+            dep_filter_list = mod_ids.keys().cloned().collect();
+            mod_update_list = mod_ids
+                .values()
+                .cloned()
+                .map(|mod_sync_info: ModSyncInfo| ModDownload::DownloadURL(mod_sync_info.latest_download_url.clone()))
+                .collect();
+        },
+        InstallOrUpdate::Install(mod_ids) => {
+            dep_filter_list.extend(mod_ids.clone());
+            mod_update_list = mod_ids.iter()
+                .map(|mod_id| ModDownload::ModID(mod_id.clone()))
+                .collect();
+        }
     }
+
+    mod_update_list.par_iter().for_each(|mod_download| {
+       match install_mod(mod_dir, mod_download.clone(), Some(api.clone())) {
+           Ok(_) => {}
+           Err(e) => {
+               eprintln!("{}", e);
+           }
+       }
+    });
+
+    install_missing_dependencies(&mod_dir, Option::from(dep_filter_list))?;
 
     Ok(())
 }
 
-pub fn install_mods(
-    mod_dir: &PathBuf,
-    mod_ids: Vec<String>,
-) -> Result<Vec<Result<(), RustiqueError>>, RustiqueError> {
-    let api = ApiClient::new();
+pub fn install_missing_dependencies(mod_dir: &PathBuf, mods_to_update_deps: Option<HashSet<ModID>>) -> Result<(), RustiqueError> {
+    eprintln!("{}","Installing missing dependencies...".green().bold());
 
-    // we use .map here as a simple way to capture any RustiqueError results and pass them up to the main
-    // match for displaying of error message
-
-    let result: Vec<Result<(), RustiqueError>> = mod_ids
-        .par_iter()
-        .map(|mod_id| {
-            install_mod(
-                mod_dir,
-                ModDownload::ModID(mod_id.to_string()),
-                Some(api.clone()),
-            )
+    let mut metadata: Vec<ModInfo> = extract_all_mods_metadata(mod_dir)?
+        .into_values()
+        .filter(|mod_info| {
+            match mods_to_update_deps.as_ref() {
+                Some(mods) => mods.contains(&mod_info.mod_id),
+                None => true
+            }
         })
         .collect();
 
-    install_missing_dependencies(&mod_dir)?;
-
-    Ok(result)
-}
-
-pub fn install_missing_dependencies(mod_dir: &PathBuf) -> Result<(), RustiqueError> {
-    println!("Installing missing dependencies...");
-    let metadata = extract_all_mods_metadata(mod_dir)?;
-    let all_installed_mods: Vec<ModID> = metadata
-        .values()
-        .map(|mod_info| mod_info.mod_id.clone())
-        .collect();
+    let mut seen_ids : HashSet<ModID> = HashSet::new();
+    metadata.retain(|mod_info| {
+       seen_ids.insert(mod_info.mod_id.clone())
+    });
 
     let missing_dependencies: Arc<Mutex<HashSet<ModID>>> = Arc::new(Mutex::new(HashSet::new()));
+    let mut exclude_updated_mods = mods_to_update_deps.unwrap_or_else(|| HashSet::new());
 
-    metadata.par_iter().for_each(|(mod_id, mod_info)| {
-        let missing =
-            extract_valid_dependencies(mod_info.dependencies.clone(), &all_installed_mods);
-        println!("{}: {}", mod_id, missing.join("\n"));
+    // here we combine the seen_ids (which are all the unique mod_ids in our download dir
+    // any anything passed to the function to exclude
+    // TODO: this is really ugly, we are using 1 vec to make sure we update the mods from that vec
+    // then later use it to exclude mods. it just feels weird..
+    exclude_updated_mods.extend(seen_ids);
+
+    metadata.par_iter().for_each(|mod_info| {
+        let missing = find_missing_dependencies(mod_info.dependencies.clone(), Option::from(&exclude_updated_mods));
+
         missing_dependencies
             .lock()
             .unwrap()
             .extend(missing.into_iter());
     });
 
-    let final_list: Vec<ModID> = Arc::try_unwrap(missing_dependencies)
+    let final_list: HashSet<ModID> = Arc::try_unwrap(missing_dependencies)
         .map_err(|_| RustiqueError::SimpleError("Failed to unwrap Arc".to_string()))?
             .into_inner()
         .map_err(|_| RustiqueError::SimpleError("Failed to unlock mutex".to_string()))?
@@ -106,7 +138,7 @@ pub fn install_missing_dependencies(mod_dir: &PathBuf) -> Result<(), RustiqueErr
         .collect();
 
     if !final_list.is_empty() {
-        install_mods(mod_dir, final_list)?;
+        install_mods(mod_dir, InstallOrUpdate::Install(final_list))?;
     }
 
     Ok(())

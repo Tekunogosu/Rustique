@@ -14,19 +14,20 @@ use rayon::prelude::*;
 use serde_json::to_string_pretty;
 use crate::api_structs::{Mod, ModInfo};
 use ureq::Agent;
+use crate::aliases::{ModFileName, ModID, ModVersion};
 use crate::rustique_errors::RustiqueError;
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct RustiqueSyncJson {
     #[serde(rename = "RustiqueSync")]
-    pub rustique_sync: HashMap<String, ModSyncInfo>,
+    pub rustique_sync: HashMap<ModID, ModSyncInfo>,
     pub last_sync: String,
 }
 
 impl RustiqueSyncJson {
     pub fn new() -> RustiqueSyncJson {
         Self {
-            rustique_sync: HashMap::<String, ModSyncInfo>::new(),
+            rustique_sync: HashMap::<ModID, ModSyncInfo>::new(),
             last_sync: String::new(),
         }
     }
@@ -34,9 +35,9 @@ impl RustiqueSyncJson {
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct ModSyncInfo {
-    pub file_name: String,
-    pub installed_version: String,
-    pub latest_known_version: String,
+    pub file_name: ModFileName,
+    pub installed_version: ModVersion,
+    pub latest_known_version: ModVersion,
     pub latest_download_url: String,
 }
 
@@ -98,7 +99,7 @@ pub fn sync(mod_dir: &PathBuf) -> Result<(), RustiqueError> {
            });
     });
 
-    let result: HashMap<String, Mod> = ApiClient::new()
+    let result: HashMap<ModID, Mod> = ApiClient::new()
         .fetch_mods_parallel(installed_mods.into_values().collect::<Vec<ModInfo>>())?;
 
     result.iter().for_each(|(mod_id, mod_info)| {
