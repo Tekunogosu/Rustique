@@ -103,7 +103,7 @@ pub fn dlog(_msg: &str) {}
 
 pub fn extract_zip_metadata(entry: PathBuf) -> Result<ModInfo, RustiqueError> {
     if entry.is_dir() {
-        return Err(RustiqueError::SimpleError(format!("Skipping mods that are not zip archives: {}", entry.display())));
+        return Err(RustiqueError::ModNotZipped(entry.display().to_string()));
     }
 
     if entry.extension().map_or(false, |x| x.to_ascii_lowercase() != "zip") {
@@ -163,7 +163,13 @@ pub fn extract_all_mods_metadata(mod_dir: &PathBuf) -> Result<HashMap<ModFileNam
             extract_zip_metadata(entry.path())
         })() {
             Ok(mod_info) => {mods.lock().unwrap().insert(filename, mod_info);}
-            Err(e) =>  dlog(&format!("{}", e))
+            Err(e) =>  {
+                if matches!(e, RustiqueError::ModNotZipped(_)) {
+                    eprintln!("{}",e.to_string().red().bold());
+                } else {
+                    dlog(&format!("{}", e.to_string()));
+                }
+            }
         }
     });
 
