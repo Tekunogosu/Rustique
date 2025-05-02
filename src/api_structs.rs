@@ -28,6 +28,29 @@ impl Display for StringOrInt {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, Hash, PartialEq)]
+#[serde(untagged)]
+pub enum StringOrBool {
+    String(String),
+    Bool(bool),
+}
+
+impl Default for StringOrBool {
+    fn default() -> Self {
+        StringOrBool::String(String::new())
+    }
+}
+
+impl Display for StringOrBool {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
+            StringOrBool::String(s) => s.clone(),
+            StringOrBool::Bool(b) => b.to_string(),
+        };
+        write!(f, "{}", str)
+    }
+}
+
 // Due to mod authors not following the modinfo.json spec for mods, we have to
 // put an alias for all fields found in modinfo.json file.
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
@@ -59,9 +82,9 @@ pub struct ModInfo {
     #[serde(default, alias = "Side")]
     pub side: Option<String>,
     #[serde(default, rename = "requiredOnClient", alias = "RequiredOnClient", alias = "RequiredonClient", alias = "Requiredonclient", alias = "requiredonclient")]
-    pub required_on_client: Option<bool>,
+    pub required_on_client: Option<StringOrBool>,
     #[serde(default, rename = "requiredOnServer", alias = "RequiredOnServer", alias = "RequiredonServer", alias = "Requiredonserver", alias = "requiredonserver")]
-    pub required_on_server: Option<bool>,
+    pub required_on_server: Option<StringOrBool>,
     #[serde(default, alias = "Dependencies")]
     pub dependencies: Option<HashMap<ModID, ModVersion>>,
 }

@@ -14,6 +14,7 @@ mod rustique_errors;
 
 mod aliases;
 mod bulk_downloader;
+mod version_management;
 
 use std::collections::HashSet;
 use std::error::Error;

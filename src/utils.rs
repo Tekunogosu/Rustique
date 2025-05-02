@@ -232,9 +232,3 @@ pub fn download_mod(mod_dir: &PathBuf, download_url: &String, api_client: &ApiCl
 }
 
 
-pub fn parse_version(mod_version: String) -> Result<Version, RustiqueError> {
-    Ok(Version::parse(&mod_version).map_err(|e| RustiqueError::VersionError {
-        context: format!("{}: {}", "version error from api. Maybe its malformed??", mod_version),
-        source: e,
-    })?)
-}

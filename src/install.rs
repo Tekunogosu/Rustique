@@ -14,6 +14,7 @@ use std::process::exit;
 use std::sync::{Arc, Mutex};
 use crate::api_structs::ModInfo;
 use crate::sync::ModSyncInfo;
+use crate::version_management::parse_latest_version;
 
 pub enum InstallOrUpdate {
     Install(HashSet<ModID>),
@@ -38,9 +39,13 @@ impl ModDownloadURI {
                         source: e,
                     })?;
 
-                mod_info.mod_json.releases[0].main_file
-                    .clone()
-                    .ok_or_else(|| RustiqueError::SimpleError(format!("Download URL not found! {}", mod_id)))
+                let (_, download_url) = parse_latest_version(&mod_info.mod_json.releases);
+
+                if download_url.is_empty() {
+                    return Err(RustiqueError::SimpleError(format!("Download URL not found! {}", mod_id)));
+                }
+
+                Ok(download_url)
             }
             ModDownloadURI::DownloadURL(download_url) => Ok(download_url)
         }
