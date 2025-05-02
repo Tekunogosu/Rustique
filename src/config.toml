@@ -1,0 +1,63 @@
+# Rustique configuration
+[main]
+mod_dir = "~/.config/Vintagestory/Mods"
+# this is the latest version we want to download mods for
+# in this case, any mod for version 1.20
+pinned_game_version = "1.20.*"
+# If you have mods in a folder, setting this option will auto-zip the file for you.
+auto_zip_mod_files = false
+# backup old versions of mods before updating them, IE dont delete
+backup_mods = false
+
+[modpack]
+# dir for holding the mods of the currently installed modpack
+# only 1 can be enabled at a time as there may be version conflicts
+enabled_dir = "~/.config/rustique/modpacks/enabled"
+# this directory hold the cached versions of packs that you have disabled.
+# there will be a command to clean out old modpacks or individual ones
+disabled_dir = "~/.config/rustique/modpacks/disabled"
+# modpack filse will be downloaded from the mods website to here
+# once you ./rustique modpack enable modpack1, it do what it needs to set it up to run
+download_dir = "~/.config/rustique/modpacks/downloads"
+
+[[alias]]
+name = "custom_server"
+mod_dir = "/opt/custom_server/Mods"
+pinned_game_version = "1.20.5"
+
+[[alias]]
+name = "friends"
+mod_dir = "/opt/servers/friends/Mods"
+pinned_game_version = "1.20.*"
+
+# each key is a column name that will show up in the list command table
+[table.headers]
+name = ["red"]
+mod_id = ["blue", "dim"]
+#version = ["green", "blink", "other stupid thing here"]
+#latest_version = []
+
+
+# this is just an example of all valid column names
+valid_columns = [
+    "name",
+    "mod_id",
+    "version",
+    "latest_version",
+    "dependencies",
+    "missing_dependencies",
+    "last_changelog",
+    "description",
+    "website",
+    "game_version",
+    "last_updated_local",
+    "last_updated_remote",
+    "pinned_version",
+    "has_backup",
+    "filename"
+]
+
+[table.cells]
+name = ["yellow", "bold", "blink"]
+mod_id = ["pink", "bold", "dim"]
+
