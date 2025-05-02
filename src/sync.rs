@@ -3,19 +3,23 @@ use std::fs::File;
 use std::hash::Hash;
 use std::io::{Read, Write};
 use std::path::PathBuf;
+use std::process::exit;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 use serde::{Deserialize, Serialize};
-use crate::utils::{RustiqueOptions, get_current_time, extract_all_mods_metadata, dlog};
-use crate::api::ApiClient;
 use chrono::{DateTime, Utc};
 use colored::Colorize;
 use rayon::prelude::*;
 use serde_json::to_string_pretty;
-use crate::api_structs::{Mod, ModInfo};
 use ureq::Agent;
+use semver::Version;
+
 use crate::aliases::{ModFileName, ModID, ModVersion};
 use crate::rustique_errors::RustiqueError;
+use crate::api_structs::{Mod, ModInfo, Releases};
+use crate::utils::{RustiqueOptions, get_current_time, extract_all_mods_metadata, dlog, parse_version};
+use crate::api::ApiClient;
+use crate::rustique_errors::RustiqueError::UrlParseError;
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct RustiqueSyncJson {
@@ -39,6 +43,12 @@ pub struct ModSyncInfo {
     pub installed_version: ModVersion,
     pub latest_known_version: ModVersion,
     pub latest_download_url: String,
+}
+
+#[derive(PartialEq, Eq, Debug, Clone)]
+pub struct LatestVersionFound {
+    pub latest_version: Version,
+    pub download_url: Option<String>,
 }
 
 pub const SYNC_FILE_NAME: &str = "rustique-sync.json";
@@ -84,6 +94,7 @@ pub fn sync(mod_dir: &PathBuf) -> Result<(), RustiqueError> {
     // wrap the sync_data in an arc/mutex for our threads
     // mut isn't required as Mutex defines that internally
     let sync_data = Arc::new(Mutex::new(sync_data));
+    let parsing_errors: Arc<Mutex<Vec<RustiqueError>>> = Arc::new(Mutex::new(Vec::new()));
 
     let installed_mods= extract_all_mods_metadata(mod_dir)?;
 
@@ -102,25 +113,59 @@ pub fn sync(mod_dir: &PathBuf) -> Result<(), RustiqueError> {
     let result: HashMap<ModID, Mod> = ApiClient::new()
         .fetch_mods_parallel(installed_mods.into_values().collect::<Vec<ModInfo>>())?;
 
-    result.iter().for_each(|(mod_id, mod_info)| {
+    result.par_iter().for_each(|(mod_id, mod_info): (&ModID, &Mod)| {
 
-        let latest_known_version = &mod_info.mod_json.releases[0].mod_version;
-        let latest_download_url = &mod_info.mod_json.releases[0].main_file;
+        // Todo: Redesign the error messaging system
+
+        let latest_version_found = mod_info.mod_json.releases.iter()
+            .filter_map(|release| {
+                let version_str = match &release.mod_version {
+                    Some(v) => v.clone(),
+                    None => {
+                        parsing_errors.lock().unwrap().push(RustiqueError::VersionError {
+                            context: format!("{}", ""),
+                            source: Version::parse("invalid.version").unwrap_err()
+                        });
+                        return None;
+                    }
+                };
+
+                match parse_version(version_str.clone()) {
+                    Ok(version) => Some((version, release.main_file.clone())),
+                    Err(e) => {
+                        parsing_errors.lock().unwrap().push(e);
+                        None
+                    }
+                }
+            })
+            .max_by(|(v1,_), (v2,_)| v1.cmp(v2))
+            .map(|(latest_version, download_url)| LatestVersionFound {
+                latest_version,
+                download_url,
+            });
+
+        let (version, download_url )= match latest_version_found {
+            Some(v) => (v.latest_version.to_string(), v.download_url.clone().unwrap_or(String::new())),
+            None => (String::new(), String::new())
+        };
 
         sync_data.lock().unwrap()
             .rustique_sync
             .entry(mod_id.clone())
             .and_modify(|sync_info| {
-                sync_info.latest_known_version = latest_known_version.clone().unwrap_or(String::new());
-                sync_info.latest_download_url = latest_download_url.clone().unwrap_or(String::new());
+                sync_info.latest_known_version = version.clone();
+                sync_info.latest_download_url = download_url.clone();
             })
             .or_insert_with(|| ModSyncInfo {
-                latest_known_version: latest_known_version.clone().unwrap_or(String::new()),
-                latest_download_url: latest_download_url.clone().unwrap_or(String::new()),
+                latest_known_version: version,
+                latest_download_url: download_url,
                 file_name: "None".to_string(),
                 installed_version: "None".to_string(),
             });
+
     });
+
+    // do something with the parse errors
 
     let data = sync_data.lock().unwrap();
     let json = to_string_pretty(&*data).map_err(|e| RustiqueError::JsonError {

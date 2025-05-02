@@ -11,6 +11,7 @@ use chrono::{DateTime, Utc};
 use colored::Colorize;
 use dirs::home_dir;
 use rayon::prelude::*;
+use semver::Version;
 use serde::{Deserialize, Serialize};
 use url::Url;
 use zip::result::ZipError;
@@ -196,7 +197,7 @@ pub fn download_mod(mod_dir: &PathBuf, download_url: &String, api_client: &ApiCl
     }
 
     let url = Url::parse(download_url.as_str())
-        .map_err(|e| RustiqueError::ParseError(e))?;
+        .map_err(|e| RustiqueError::UrlParseError(e))?;
 
     dlog(format!("Trying to download url: {}", url.clone().to_string()).as_str());
     let response = api_client.get_request(&url.to_string())
@@ -228,4 +229,12 @@ pub fn download_mod(mod_dir: &PathBuf, download_url: &String, api_client: &ApiCl
     dlog(format!("File downloaded to {}", file_path.display()).as_str());
 
     Ok(extract_zip_metadata(file_path)?)
+}
+
+
+pub fn parse_version(mod_version: String) -> Result<Version, RustiqueError> {
+    Ok(Version::parse(&mod_version).map_err(|e| RustiqueError::VersionError {
+        context: format!("{}: {}", "version error from api. Maybe its malformed??", mod_version),
+        source: e,
+    })?)
 }

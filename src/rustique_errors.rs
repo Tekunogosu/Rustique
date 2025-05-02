@@ -13,7 +13,12 @@ pub enum RustiqueError {
         context: String,
         source: std::io::Error
     },
-    ParseError(url::ParseError),
+    UrlParseError(url::ParseError),
+    VersionError{
+        context: String,
+        source: semver::Error,
+    },
+    NoVersionFound(String),
     JsonError {
         context: String,
         source: serde_json5::Error
@@ -31,10 +36,12 @@ impl fmt::Display for RustiqueError {
             RustiqueError::ApiError {context, source} => write!(f, "Api Error: {}: {}", context, source.to_string().red().bold()),
             RustiqueError::DownloadError(e) => write!(f, "Download Error: {}", e.to_string().red().bold()),
             RustiqueError::IoError { context, source } => write!(f, "{}: {}", context, source.to_string().red().bold()),
-            RustiqueError::ParseError(e) => write!(f, "Parse Error: {}", e.to_string().red().bold()),
+            RustiqueError::UrlParseError(e) => write!(f, "Parse Error: {}", e.to_string().red().bold()),
             RustiqueError::SimpleError(e) => write!(f, "{}", e.to_string().red().bold()),
             RustiqueError::ZipError{context, source} => write!(f, "ZipError: {}, {}", context, source.to_string().red().bold()),
             RustiqueError::JsonError{context, source} => write!(f, "JsonParseError: {}, {}", context, source.to_string().red().bold()),
+            RustiqueError::VersionError {context, source} => write!(f, "Version Parse Error: {}, {}", context, source.to_string().red().bold()),
+            RustiqueError::NoVersionFound(e) => write!(f, "No Version Found: {}", e.to_string().red().bold()),
         }
     }
 }
@@ -52,6 +59,6 @@ impl From<std::io::Error> for RustiqueError {
 
 impl From<url::ParseError> for RustiqueError {
     fn from(e: url::ParseError) -> Self {
-        RustiqueError::ParseError(e)
+        RustiqueError::UrlParseError(e)
     }
 }
