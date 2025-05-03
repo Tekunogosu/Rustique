@@ -45,11 +45,24 @@ pub enum Commands {
     #[command(about = "Bulk downloader")]
     BulkDownloader(BulkDownloadCommands),
 
-
+    #[cfg(feature = "dev")]
     #[command(about = "test command")]
     TestCommand(TestArg),
+
+    #[cfg(feature = "dev")]
+    #[command(about = "load mods from a text file")]
+    LoadMods(LoadModsArgs)
+
 }
 
+#[cfg(feature = "dev")]
+#[derive(Args, Debug)]
+pub struct LoadModsArgs {
+    #[arg(short, long)]
+    pub filename: String,
+}
+
+#[cfg(feature = "dev")]
 #[derive(Args)]
 pub struct TestArg {
     #[arg(short, long)]

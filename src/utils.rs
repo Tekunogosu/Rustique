@@ -11,6 +11,7 @@ use chrono::{DateTime, Utc};
 use colored::Colorize;
 use dirs::home_dir;
 use rayon::prelude::*;
+use regex::Regex;
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use url::Url;
@@ -235,3 +236,10 @@ pub fn download_mod(mod_dir: &PathBuf, download_url: &String, api_client: &ApiCl
     Ok(extract_zip_metadata(file_path)?)
 }
 
+
+// Replaces all instances of the newline and tab character from text, as well as excessive spaces.
+// This is a fix for https://github.com/Tekunogosu/Rustique/issues/3
+pub fn sanitize_string(string: &str) -> String {
+    let re = Regex::new(r"[\n\t ]+").unwrap();
+    re.replace_all(string, " ").to_string()
+}

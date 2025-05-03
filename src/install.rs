@@ -96,7 +96,7 @@ pub fn install_mods(mod_dir: &PathBuf, install_or_update: InstallOrUpdate) -> Re
 
     mod_download_urls.par_iter().for_each(|mod_download| {
        match install_mod(mod_dir, mod_download, &api) {
-           Ok(_) => {}
+           Ok(_) => { }
            Err(e) => {
                eprintln!("{}", e);
            }

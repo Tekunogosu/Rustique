@@ -20,6 +20,8 @@ mod config;
 
 use std::collections::HashSet;
 use std::error::Error;
+use std::fs::File;
+use std::io::Read;
 use std::path::PathBuf;
 use std::process::exit;
 use clap::{Args, Parser, Subcommand, ColorChoice, CommandFactory, FromArgMatches, crate_authors};
@@ -151,6 +153,7 @@ fn main() {
             }
         }
 
+        #[cfg(feature = "dev")]
         Commands::TestCommand(args) => {
             {
                 let mut config = get_config().write().unwrap();
@@ -162,7 +165,19 @@ fn main() {
                let config = get_config().read().unwrap();
                 eprintln!("{:?}", config);
             }
+        }
+        #[cfg(feature = "dev")]
+        Commands::LoadMods(args) => {
+            let file_path = get_expanded_path(PathBuf::from(args.filename.clone()));
+            let mut contents = String::new();
+            let mut mod_file = File::open(file_path).unwrap();
+            mod_file.read_to_string(&mut contents).unwrap();
 
+            let list : Vec<String> = contents.split('\n').map(|s| s.to_string()).collect();
+
+            let set : HashSet<String> = HashSet::from_iter(list);
+
+            install_mods(mod_opts.mod_dir.as_ref().unwrap(), InstallOrUpdate::Install(set)).unwrap();
         }
     }
 }

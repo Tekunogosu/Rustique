@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use crate::api_structs::ModInfo;
 use crate::sync::{parse_sync_file, RustiqueSyncJson};
-use crate::utils::{RustiqueOptions, extract_all_mods_metadata, extract_zip_metadata, find_missing_dependencies};
+use crate::utils::{RustiqueOptions, extract_all_mods_metadata, extract_zip_metadata, find_missing_dependencies, sanitize_string};
 use comfy_table::{Attribute, Cell, Color, ContentArrangement, Row, Table};
 use rayon::prelude::*;
 use std::error::Error;
@@ -13,6 +13,7 @@ use std::ops::Add;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use colored::Colorize;
+use regex::Regex;
 use ureq::get;
 use zip::ZipArchive;
 use crate::aliases::ModID;
@@ -111,8 +112,6 @@ pub fn list_installed(mod_dir: &PathBuf, only_updated: bool) -> Result<(), Rusti
 
         let missing_dependencies = find_missing_dependencies(mod_info.dependencies.clone(), Option::from(&mod_id_list));
 
-
-
         row.add_cell(
             Cell::new(
                 find_missing_dependencies(mod_info.dependencies.clone(), None).join(",")
@@ -120,14 +119,9 @@ pub fn list_installed(mod_dir: &PathBuf, only_updated: bool) -> Result<(), Rusti
         ).add_cell(Cell::new(
                 missing_dependencies.join(", ").as_str()
         ).fg(Color::Red).add_attribute(Attribute::SlowBlink).add_attribute(Attribute::Bold))
-            .add_cell(Cell::new(
-            mod_info.description.as_ref().unwrap_or(&"".to_string()),
-        ));
+            .add_cell(Cell::new(sanitize_string(mod_info.description.as_ref().unwrap_or(&"".to_string())))
+        );
 
-        //     .add_cell(Cell::new(
-        //     mod_info.website.as_ref().unwrap_or(&"".to_string()),
-        // ));
-        //
         table.add_row(row);
     });
 
