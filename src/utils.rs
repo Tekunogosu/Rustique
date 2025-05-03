@@ -32,7 +32,7 @@ impl RustiqueOptions {
         if cfg!(target_os = "windows") {
             Self::windows()
         } else {
-            Self::linux()
+            Self::unix()
         }
     }
 
@@ -46,7 +46,8 @@ impl RustiqueOptions {
         panic!("Unable to determine default mods directory");
     }
 
-    pub fn linux() -> Self {
+    // this also works for mac
+    pub fn unix() -> Self {
         if let Some(home) = home_dir() {
             return RustiqueOptions {
                 mod_dir: Some(home.join(".config").join("VintagestoryData").join("Mods")),

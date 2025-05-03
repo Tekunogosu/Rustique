@@ -28,7 +28,8 @@ pub enum RustiqueError {
     ZipError {
         context: String,
         source: zip::result::ZipError
-    }
+    },
+    ConfigFileError(String),
 }
 
 impl fmt::Display for RustiqueError {
@@ -43,7 +44,8 @@ impl fmt::Display for RustiqueError {
             RustiqueError::JsonError{context, source} => write!(f, "JsonParseError: {}, {}", context, source.to_string().red().bold()),
             RustiqueError::VersionError {context, source} => write!(f, "Version Parse Error: {}, {}", context, source.to_string().red().bold()),
             RustiqueError::NoVersionFound(e) => write!(f, "No Version Found: {}", e.to_string().red().bold()),
-            RustiqueError::ModNotZipped(e) => write!(f, "Expected .zip, found folder. Did you forget to zip your mod? {}", e.to_string().yellow().bold())
+            RustiqueError::ModNotZipped(e) => write!(f, "Expected .zip, found folder. Did you forget to zip your mod? {}", e.to_string().yellow().bold()),
+            RustiqueError::ConfigFileError(e) => write!(f, "Config File Error: {}", e.to_string().red().bold()),
         }
     }
 }

@@ -15,6 +15,8 @@ mod rustique_errors;
 mod aliases;
 mod bulk_downloader;
 mod version_management;
+mod config_structs;
+mod config;
 
 use std::collections::HashSet;
 use std::error::Error;
@@ -25,6 +27,7 @@ use colored::Colorize;
 use crate::aliases::ModID;
 use crate::bulk_downloader::bulk_download;
 use crate::cli_commands::{Cli, Commands};
+use crate::config_structs::{get_config, init_config};
 use crate::install::{install_missing_dependencies, install_mod, install_mods, InstallOrUpdate};
 use crate::utils::{dlog, get_expanded_path, RustiqueOptions};
 use crate::list::list_installed;
@@ -36,6 +39,17 @@ use crate::update::{update_mods};
 fn main() {
 
     let cli = Cli::parse();
+
+    // setup the config global
+    // ideally this *could* be setup by the user on where they want the config to be loaded from,
+    // but for now it will always be in .config/rustique
+    // this will need to be modified to work with windows using %appdata%
+    match init_config(None) {
+        Ok(_) => {},
+        Err(e) => {
+            eprintln!("{}", e.to_string());
+        }
+    }
 
     let mod_opts = if cli.mods_dir.is_none() {
         RustiqueOptions::default()
@@ -135,6 +149,20 @@ fn main() {
                     eprintln!("{}", e.to_string());
                 }
             }
+        }
+
+        Commands::TestCommand(args) => {
+            {
+                let mut config = get_config().write().unwrap();
+                config.pinned_game_version = args.version_to_pin.to_string();
+                config.save(None).unwrap();
+            }
+
+            {
+               let config = get_config().read().unwrap();
+                eprintln!("{:?}", config);
+            }
+
         }
     }
 }

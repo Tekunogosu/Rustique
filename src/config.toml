@@ -1,5 +1,4 @@
 # Rustique configuration
-[main]
 mod_dir = "~/.config/Vintagestory/Mods"
 # this is the latest version we want to download mods for
 # in this case, any mod for version 1.20
@@ -15,7 +14,7 @@ backup_mods = false
 enabled_dir = "~/.config/rustique/modpacks/enabled"
 # this directory hold the cached versions of packs that you have disabled.
 # there will be a command to clean out old modpacks or individual ones
-disabled_dir = "~/.config/rustique/modpacks/disabled"
+disabled_dir = "~/.config/rustique/modpacks/disabled"5
 # modpack filse will be downloaded from the mods website to here
 # once you ./rustique modpack enable modpack1, it do what it needs to set it up to run
 download_dir = "~/.config/rustique/modpacks/downloads"

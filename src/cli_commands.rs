@@ -45,6 +45,15 @@ pub enum Commands {
     #[command(about = "Bulk downloader")]
     BulkDownloader(BulkDownloadCommands),
 
+
+    #[command(about = "test command")]
+    TestCommand(TestArg),
+}
+
+#[derive(Args)]
+pub struct TestArg {
+    #[arg(short, long)]
+    pub version_to_pin: String,
 }
 
 #[cfg(feature = "dev")]

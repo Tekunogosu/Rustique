@@ -1,6 +1,6 @@
 [package]
 name = "Rustique"
-version = "0.1.5"
+version = "0.2.0"
 edition = "2024"
 authors = ["tekunogosu", "Violet4"]
 
@@ -24,6 +24,7 @@ url = "2.5.4"
 lenient_semver = "0.4.2"
 regex = "1.11.1"
 semver = "1.0.26"
+toml = "0.8.22"
 
 [profile.dev]
 opt-level = 1
