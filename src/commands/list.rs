@@ -54,7 +54,7 @@ pub fn list_installed(mod_dir: &PathBuf, only_updated: bool) -> Result<(), Rusti
 
     let mut table = setup_table_from_sync(&sync_data);
 
-    let sync_data_unwrapped = sync_data.ok();
+    let sync_data_unwrapped = sync_data.as_ref().ok();
 
     let metadata = extract_all_mods_metadata(&mod_dir)?;
     let mut metadata: Vec<&ModInfo> = metadata.values().collect();
@@ -87,32 +87,40 @@ pub fn list_installed(mod_dir: &PathBuf, only_updated: bool) -> Result<(), Rusti
     metadata.into_iter().for_each(|mod_info| {
         let mut row = Row::new();
         row.add_cell(Cell::new(&mod_info.name).fg(Color::Yellow))
-            .add_cell(Cell::new(&mod_info.mod_id))
-            .add_cell(Cell::new(
-                mod_info.version.as_ref().unwrap_or(&"".to_string()),
-            ).add_attribute(Attribute::Dim));
+            .add_cell(Cell::new(&mod_info.mod_id));
 
+        let mut installed_version_cell = Cell::new(mod_info.version.clone().unwrap_or_default()).add_attribute(Attribute::Dim);
+        let mut latest_version_cell: Cell = Cell::new("N/A");
         if let Some(data) = &sync_data_unwrapped {
             if let Some(sync) = data.rustique_sync.get(mod_info.mod_id.as_str()) {
+
+
                 let latest_version = sync.latest_known_version.to_string();
-                let current_version = mod_info.version.as_ref().unwrap_or(&latest_version);
+                // add the installed version that we see from the sync file as its been parse at this point
+
+                let current_version = sync.installed_version.to_string();
+                installed_version_cell = Cell::new(&current_version).add_attribute(Attribute::Dim);
 
                 let mut cell = Cell::new(&sync.latest_known_version.to_string());
 
-                if &latest_version == current_version {
+                if latest_version.eq(current_version.to_string().as_str()) {
                     cell = cell.fg(Color::Green).add_attribute(Attribute::Dim);
                 } else {
                     cell = cell.add_attribute(Attribute::Bold).fg(Color::Red);
                 }
-                row.add_cell(cell);
-            } else {
-                row.add_cell(Cell::new("N/A"));
+                latest_version_cell = cell;
             }
+        }
+        row.add_cell(installed_version_cell);
+
+        if sync_data.as_ref().is_ok() {
+            row.add_cell(latest_version_cell);
         }
 
         let missing_dependencies = find_missing_dependencies(mod_info.dependencies.clone(), Option::from(&mod_id_list));
 
-        row.add_cell(
+        row
+            .add_cell(
             Cell::new(
                 find_missing_dependencies(mod_info.dependencies.clone(), None).join(",")
             )

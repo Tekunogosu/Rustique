@@ -59,6 +59,18 @@ impl RustiqueOptions {
         }
         panic!("Unable to determine user's home directory, do you have permissions??");
     }
+
+    pub fn get_mod_path(&self) -> PathBuf {
+        let default_path = Self::default().mod_dir.unwrap();
+        let config = get_config().read().unwrap();
+        let config_mod_dir = PathBuf::from(&config.mod_dir);
+
+        if default_path.as_path().eq(get_expanded_path(config_mod_dir.clone()).as_path()) {
+            default_path
+        } else {
+            config_mod_dir
+        }
+    }
 }
 
 pub fn get_current_time() -> String {

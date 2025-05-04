@@ -12,15 +12,15 @@ use colored::Colorize;
 use rayon::prelude::*;
 use serde_json::to_string_pretty;
 use ureq::Agent;
-use semver::Version;
-use tracing::{debug, error, info};
+use semver::{Error, Version};
+use tracing::{debug, error, info, warn};
 use crate::aliases::{ModFileName, ModID, ModVersion};
 use crate::rustique_errors::RustiqueError;
 use crate::api_structs::{Mod, ModInfo, Releases};
 use crate::utils::{RustiqueOptions, get_current_time, extract_all_mods_metadata, dlog};
 use crate::api::ApiClient;
 use crate::rustique_errors::RustiqueError::UrlParseError;
-use crate::version_management::{parse_latest_version};
+use crate::version_management::{parse_latest_version, parse_version};
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct RustiqueSyncJson {
@@ -103,15 +103,25 @@ pub fn sync(mod_dir: &PathBuf) -> Result<(), RustiqueError> {
     let installed_mods= extract_all_mods_metadata(mod_dir)?;
 
     installed_mods.iter().for_each(|(k,v)| {
+        let version = if let Ok(parsed_version) = parse_version(v.version.clone().unwrap_or_default()) {
+            parsed_version.to_string()
+        } else {
+            warn!("Could not parse version: {} for {}\n\rThis mod may not update correctly..", v.version.clone().unwrap_or_default(), k.to_string());
+            v.version.clone().unwrap_or_default()
+        };
+
+        info!("VERSION Parsed: {} for {}", version, v.mod_id);
+
        sync_data.lock().unwrap()
            .rustique_sync
            .entry(v.mod_id.clone())
            .or_insert_with(|| ModSyncInfo {
-               installed_version: v.version.clone().unwrap_or(String::new()),
+               installed_version: version.clone(),
                file_name: k.clone(),
                latest_download_url: String::new(),
                latest_known_version: String::new(),
            });
+
     });
 
     let result: HashMap<ModID, Mod> = ApiClient::new()

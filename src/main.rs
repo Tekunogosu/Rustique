@@ -35,7 +35,7 @@ use commands::update::update_mods;
 use crate::commands::arg_structs::modpack_args::ModpackCommands;
 use crate::commands::config::{parse_config_args};
 use crate::commands::sync::handle_sync_call;
-use crate::config_manager::init_config;
+use crate::config_manager::{get_config, init_config};
 use crate::logging::{init_logging, VerboseLevel};
 
 // TODO: Add feature to notify user when the modinfo.json file is malformed
@@ -77,14 +77,16 @@ fn main() {
         }
     };
 
+    let mod_dir = &mod_opts.get_mod_path();
+
     // TODO: check for windows equiv
     match &cli.command {
         Commands::Sync => {
             // Sync will add a rustique-sync.json to a valid mod_dir
-            handle_sync_call(mod_opts.mod_dir.as_ref().unwrap());
+            handle_sync_call(mod_dir);
         }
         Commands::List(args) => {
-            match list_installed(mod_opts.mod_dir.as_ref().unwrap(), args.updates) {
+            match list_installed(mod_dir, args.updates) {
                 Ok(_) => {}
                 Err(e) => {
                     error!("{}", e.to_string().red().bold());
@@ -93,9 +95,9 @@ fn main() {
             }
         }
         Commands::Update(args) => {
-            match update_mods(mod_opts.mod_dir.as_ref().unwrap(), args.mod_ids.clone(), args.keep_old_files) {
+            match update_mods(mod_dir, args.mod_ids.clone(), args.keep_old_files) {
                 Ok(_) => {
-                    handle_sync_call(mod_opts.mod_dir.as_ref().unwrap());
+                    handle_sync_call(mod_dir);
                 }
                 Err(e) => {
                     error!("{}", e.to_string().red().bold());
@@ -109,7 +111,7 @@ fn main() {
         Commands::Install(args) => {
             if args.mod_ids.len() > 0 {
                 let mod_ids: HashSet<ModID> = args.mod_ids.iter().cloned().collect();
-                match install_mods(mod_opts.mod_dir.as_ref().unwrap(), InstallOrUpdate::Install(mod_ids)) {
+                match install_mods(mod_dir, InstallOrUpdate::Install(mod_ids)) {
                     Ok(_) => {
                         if args.mod_ids.len() > 1 {
                             // eprintln!("{}", "Mods successfully installed!".bold().green());
@@ -130,7 +132,7 @@ fn main() {
 
             if args.missing_dependencies {
 
-                match install_missing_dependencies(mod_opts.mod_dir.as_ref().unwrap(), None) {
+                match install_missing_dependencies(mod_dir, None) {
                     Ok(_) => {
                         info!("{}", "All dependencies resolved..".bold().green());
                     }
@@ -156,7 +158,7 @@ fn main() {
             match command {
                 ModpackCommands::Create(args) => {
                     if args.mod_dir.is_some() {
-                        println!("Creating mod pack from {}", &args.mod_dir.as_ref().unwrap().to_string());
+                        println!("Creating mod pack from {}", mod_dir.as_path().display());
                     }
 
                     println!("creating modpack with name: {}", &args.name);
@@ -165,7 +167,7 @@ fn main() {
         }
         #[cfg(feature = "dev")]
         Commands::BulkDownloader(args) => {
-            match bulk_download(mod_opts.mod_dir.as_ref().unwrap(), args.num_to_download) {
+            match bulk_download(mod_dir, args.num_to_download) {
                 Ok(_) => {
                     info!("All mods downloaded.. hopefully..");
                 }
@@ -199,7 +201,7 @@ fn main() {
 
             let set : HashSet<String> = HashSet::from_iter(list);
 
-            install_mods(mod_opts.mod_dir.as_ref().unwrap(), InstallOrUpdate::Install(set)).unwrap();
+            install_mods(mod_dir, InstallOrUpdate::Install(set)).unwrap();
         }
 
 
