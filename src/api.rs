@@ -76,7 +76,7 @@ impl ApiClient {
                  debug!("{:#?}",mod_info);
 
                  if mod_info.mod_id.is_empty() {
-                     error!("\n\r\tMod {}: Has an empty or missing mod_id. Please contact the author to correct their malformed modinfo.json.", mod_info.name.red().bold());
+                     error!("\n\r\tMod {}: Has an empty or missing mod_id. Please contact the author to correct their malformed modinfo.json.\n\r\tWithout the mod id, Rustique will be unable to manage this mod.", mod_info.name.red().bold());
                      return None;
                  }
 

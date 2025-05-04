@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use crate::api_structs::ModInfo;
 use crate::commands::sync::{parse_sync_file, RustiqueSyncJson};
-use crate::utils::{RustiqueOptions, extract_all_mods_metadata, extract_zip_metadata, find_missing_dependencies, sanitize_string};
+use crate::utils::{RustiqueOptions, extract_all_mods_metadata, extract_zip_metadata, find_missing_dependencies, sanitize_string, footer};
 use comfy_table::{Attribute, Cell, Color, ContentArrangement, Row, Table};
 use rayon::prelude::*;
 use std::error::Error;
@@ -12,12 +12,15 @@ use std::io::{Read, stdin};
 use std::ops::Add;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 use colored::Colorize;
 use regex::Regex;
+use tracing::info;
 use ureq::get;
 use zip::ZipArchive;
 use crate::aliases::ModID;
 use crate::rustique_errors::RustiqueError;
+use crate::version_management::parse_version;
 
 fn setup_table_from_sync(sync_data: &Result<RustiqueSyncJson, RustiqueError>) -> Table {
     let mut table = Table::new();
@@ -48,6 +51,9 @@ fn setup_table_from_sync(sync_data: &Result<RustiqueSyncJson, RustiqueError>) ->
 // TODO:: Should we handle mods that are in directories and not .zip files
 pub fn list_installed(mod_dir: &PathBuf, only_updated: bool) -> Result<(), RustiqueError> {
     // TODO: check which platform we are on
+
+
+    let start_time = Instant::now();
 
     // check for sync data so we can show latest version
     let sync_data = parse_sync_file(mod_dir);
@@ -84,31 +90,28 @@ pub fn list_installed(mod_dir: &PathBuf, only_updated: bool) -> Result<(), Rusti
     let mod_id_list: HashSet<ModID> = metadata.clone()
         .into_iter().map(|mod_info| mod_info.mod_id.clone()).collect();
 
+    let total_mod_count = mod_id_list.len();
+
     metadata.into_iter().for_each(|mod_info| {
         let mut row = Row::new();
         row.add_cell(Cell::new(&mod_info.name).fg(Color::Yellow))
             .add_cell(Cell::new(&mod_info.mod_id));
 
-        let mut installed_version_cell = Cell::new(mod_info.version.clone().unwrap_or_default()).add_attribute(Attribute::Dim);
+        let installed_version = parse_version(mod_info.version.clone().unwrap_or_default()).unwrap().to_string();
+        let installed_version_cell = Cell::new(&installed_version).add_attribute(Attribute::Dim);
         let mut latest_version_cell: Cell = Cell::new("N/A");
         if let Some(data) = &sync_data_unwrapped {
             if let Some(sync) = data.rustique_sync.get(mod_info.mod_id.as_str()) {
 
-
                 let latest_version = sync.latest_known_version.to_string();
-                // add the installed version that we see from the sync file as its been parse at this point
 
-                let current_version = sync.installed_version.to_string();
-                installed_version_cell = Cell::new(&current_version).add_attribute(Attribute::Dim);
+                latest_version_cell = Cell::new(&sync.latest_known_version.to_string());
 
-                let mut cell = Cell::new(&sync.latest_known_version.to_string());
-
-                if latest_version.eq(current_version.to_string().as_str()) {
-                    cell = cell.fg(Color::Green).add_attribute(Attribute::Dim);
+                if latest_version.eq(&installed_version) {
+                    latest_version_cell = latest_version_cell.fg(Color::Green).add_attribute(Attribute::Dim);
                 } else {
-                    cell = cell.add_attribute(Attribute::Bold).fg(Color::Red);
+                    latest_version_cell = latest_version_cell.add_attribute(Attribute::Bold).fg(Color::Red);
                 }
-                latest_version_cell = cell;
             }
         }
         row.add_cell(installed_version_cell);
@@ -134,6 +137,13 @@ pub fn list_installed(mod_dir: &PathBuf, only_updated: bool) -> Result<(), Rusti
     });
 
     println!("{}", table);
+    print!("{} {}", "Total Mod Count:".bright_green().bold().on_black(), total_mod_count.to_string().bright_purple().on_black());
+
+    let elapsed = format!("{:.2}", start_time.elapsed().as_secs_f64());
+    //
+    println!(" - {}: {}{}","List operation took".bright_green().bold().on_black(), elapsed.bright_purple().on_black(), "s".bright_yellow().on_black());
+    //
+    // footer(start_time, "List");
 
     Ok(())
 }

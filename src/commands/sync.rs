@@ -5,7 +5,7 @@ use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::process::exit;
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, Instant, SystemTime};
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 use colored::Colorize;
@@ -17,7 +17,7 @@ use tracing::{debug, error, info, warn};
 use crate::aliases::{ModFileName, ModID, ModVersion};
 use crate::rustique_errors::RustiqueError;
 use crate::api_structs::{Mod, ModInfo, Releases};
-use crate::utils::{RustiqueOptions, get_current_time, extract_all_mods_metadata, dlog};
+use crate::utils::{RustiqueOptions, get_current_time, extract_all_mods_metadata, dlog, footer};
 use crate::api::ApiClient;
 use crate::rustique_errors::RustiqueError::UrlParseError;
 use crate::version_management::{parse_latest_version, parse_version};
@@ -82,6 +82,7 @@ pub fn parse_sync_file(mod_dir: &PathBuf) -> Result<RustiqueSyncJson, RustiqueEr
 
 pub fn sync(mod_dir: &PathBuf) -> Result<(), RustiqueError> {
     eprintln!("{}", "Syncing...".green().bold());
+    let start_time = Instant::now();
     // check if rustique-sync.json exists
     // if so, parse the file for updating
     // if not, do all the sync process and then write a new file
@@ -161,6 +162,11 @@ pub fn sync(mod_dir: &PathBuf) -> Result<(), RustiqueError> {
         })?;
 
     file.write_all(json.as_bytes())?;
+
+    // let elapsed = format!("{:.2}", start_time.elapsed().as_secs_f64());
+    // println!("\n\r{} {}{}\n\r", "Sync operation took:".bright_green().bold().on_black(), elapsed.bright_purple().on_black(), "s".bright_yellow().on_black());
+    //
+    footer(start_time, "Sync");
 
     Ok(())
 }

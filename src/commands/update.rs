@@ -5,9 +5,10 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use crate::api::ApiClient;
 use crate::commands::sync::{parse_sync_file, ModSyncInfo};
-use crate::utils::{delete_file, dlog, RustiqueOptions, download_mod};
+use crate::utils::{delete_file, dlog, RustiqueOptions, download_mod, footer};
 use rayon::prelude::*;
 use std::process::exit;
+use std::time::Instant;
 use colored::Colorize;
 use tracing::{error, info};
 use url::{form_urlencoded, Url};
@@ -17,6 +18,7 @@ use crate::rustique_errors::RustiqueError;
 
 pub fn update_mods(mod_dir: &PathBuf, update_mod_ids: Vec<ModID>, _keep_old_files: bool) -> Result<(), RustiqueError> {
 
+    let start_time = Instant::now();
     let sync_data  = parse_sync_file(mod_dir);
     if sync_data.is_ok() {
         eprintln!("{}", "Updating mods...".green().bold());
@@ -73,6 +75,8 @@ pub fn update_mods(mod_dir: &PathBuf, update_mod_ids: Vec<ModID>, _keep_old_file
         eprintln!("{} {} {}", "Looks like you need to run".bright_yellow(), "'Rustique sync'".bright_blue().bold(), "first".yellow());
         exit(1);
     }
+
+    footer(start_time, "Update");
 
     Ok(())
 }

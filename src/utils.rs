@@ -6,14 +6,16 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::exit;
 use std::sync::{Arc, Mutex};
-use std::time::SystemTime;
+use std::time::{Instant, SystemTime};
 use chrono::{DateTime, Utc};
 use colored::Colorize;
+use comfy_table::{Cell, Row, Table, Color, Attribute};
 use dirs::home_dir;
 use rayon::prelude::*;
 use regex::Regex;
 use semver::Version;
 use serde::{Deserialize, Serialize};
+use toml::value::Time;
 use tracing::{debug, error};
 use url::Url;
 use zip::result::ZipError;
@@ -264,4 +266,23 @@ pub fn download_mod(mod_dir: &PathBuf, download_url: &String, api_client: &ApiCl
 pub fn sanitize_string(string: &str) -> String {
     let re = Regex::new(r"[\n\t ]+").unwrap();
     re.replace_all(string, " ").to_string()
+}
+
+pub fn footer(start_time: Instant, operation: &str) {
+    let mut table = Table::new();
+    table.load_preset(comfy_table::presets::UTF8_HORIZONTAL_ONLY)
+        .set_content_arrangement(comfy_table::ContentArrangement::Dynamic);
+        // .set_header(vec![""]);
+
+    let elapsed = format!("{:.2}s", start_time.elapsed().as_secs_f64());
+    // let out_str = format!("{} {} {}{}", operation.bright_green().bold(),"operation took:".bright_green().bold(), elapsed.bright_purple(), "s".bright_yellow());
+    let operation_str = format!("{} {}", operation, "operation took");
+    let mut row = Row::new();
+
+    row.add_cell(Cell::new(operation_str.as_str()).fg(Color::Green).add_attribute(Attribute::Bold));
+    row.add_cell(Cell::new(elapsed.as_str()).fg(Color::Magenta).add_attribute(Attribute::Bold));
+
+    table.add_row(row);
+
+    println!("{}", table);
 }
