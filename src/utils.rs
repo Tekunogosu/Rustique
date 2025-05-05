@@ -18,8 +18,9 @@ use rayon::prelude::*;
 use regex::Regex;
 use semver::Version;
 use serde::{Deserialize, Serialize};
+use tokio::io::AsyncWriteExt;
 use toml::value::Time;
-use tracing::{debug, error};
+use tracing::{debug, error, warn};
 use tracing::span::Attributes;
 use url::Url;
 use zip::result::ZipError;
@@ -122,61 +123,126 @@ pub fn dlog(msg: &str) {
 #[cfg(not(feature = "debug"))]
 pub fn dlog(_msg: &str) {}
 
+
+//
+// pub fn extract_zip_metadata(entry: PathBuf) -> Result<ModInfo, RustiqueError> {
+//     // This function doesn't need async as it's doing synchronous file operations
+//     if entry.is_dir() {
+//         return Err(RustiqueError::ModNotZipped(entry.display().to_string()));
+//     }
+//     if entry.extension().map_or(false, |x| x.to_ascii_lowercase() != "zip") {
+//         return Err(RustiqueError::SimpleError(format!("Skipping non-zip file: {}", entry.display())));
+//     }
+//     let file = File::open(&entry)
+//         .map_err(|e| RustiqueError::IoError {
+//             context: format!("Failed to open {:?}: {}", entry.file_name(), e),
+//             source: e,
+//         })?;
+//     let mut archive = ZipArchive::new(file)
+//         .map_err(|e| RustiqueError::ZipError {
+//             context: format!("Failed to open zip archive {:?}: {}", entry.file_name(),e),
+//             source: e
+//         })?;
+//     let mut mod_info_file = archive.by_name("modinfo.json")
+//         .map_err(|e| RustiqueError::ZipError {
+//             context: format!("Failed to find modinfo.json in {:?}: {}", entry.file_name(),e),
+//             source: e
+//         })?;
+//     let mut mod_info_contents = String::new();
+//     mod_info_file.read_to_string(&mut mod_info_contents)
+//         .map_err(|e| RustiqueError::IoError {
+//             context: format!("Failed to read modinfo.json in {:?}", entry.file_name()),
+//             source: e,
+//         })?;
+//     let mod_info = serde_json5::from_str::<ModInfo>(&mod_info_contents)
+//         .map_err(|e: serde_json5::Error| RustiqueError::JsonError {
+//             context: format!("Failed to parse json in {}", entry.file_name().unwrap_or_default().to_string_lossy()),
+//             source: e
+//         })?;
+//     Ok(mod_info)
+// }
+//
+// pub fn extract_all_mods_metadata(mod_dir: &PathBuf) -> Result<HashMap<ModFileName, ModInfo>, RustiqueError> {
+//     // This can remain synchronous since Tokio won't help with CPU-bound tasks
+//     let dir = fs::read_dir(mod_dir)
+//         .map_err(|e| RustiqueError::IoError {
+//             context: format!("Can't read mod_dir: {}", mod_dir.to_string_lossy()),
+//             source: e,
+//         })?;
+//     let entries_vec: Vec<DirEntry> = dir.filter_map(|e| e.ok()).collect();
+//     let mods = Arc::new(Mutex::new(HashMap::<ModFileName, ModInfo>::new()));
+//     let notify_of_unzipped_mods = match get_config().read() {
+//         Ok(config) => config.notify_of_unzipped_mods,
+//         Err(e) => {
+//             error!("Config error: {}", e.to_string());
+//             false
+//         }
+//     };
+//
+//     // Use Rayon for CPU-bound tasks (zip processing is CPU-bound)
+//     entries_vec.par_iter().for_each(|entry| {
+//         let filename = entry.file_name().to_string_lossy().to_string();
+//         match (|| -> Result<ModInfo, RustiqueError> {
+//             extract_zip_metadata(entry.path())
+//         })() {
+//             Ok(mod_info) => {mods.lock().unwrap().insert(filename, mod_info);}
+//             Err(e) =>  {
+//                 if matches!(e, RustiqueError::ModNotZipped(_)) && notify_of_unzipped_mods {
+//                     eprintln!("{}",e.to_string().yellow());
+//                 } else {
+//                     debug!("{}", e.to_string().yellow());
+//                 }
+//             }
+//         }
+//     });
+//     Ok(mods.lock().unwrap().clone())
+// }
 pub fn extract_zip_metadata(entry: PathBuf) -> Result<ModInfo, RustiqueError> {
+    // This function doesn't need async as it's doing synchronous file operations
     if entry.is_dir() {
         return Err(RustiqueError::ModNotZipped(entry.display().to_string()));
     }
-
     if entry.extension().map_or(false, |x| x.to_ascii_lowercase() != "zip") {
         return Err(RustiqueError::SimpleError(format!("Skipping non-zip file: {}", entry.display())));
     }
-
-    let file  = File::open(&entry)
+    let file = File::open(&entry)
         .map_err(|e| RustiqueError::IoError {
             context: format!("Failed to open {:?}: {}", entry.file_name(), e),
             source: e,
         })?;
-
-
     let mut archive = ZipArchive::new(file)
         .map_err(|e| RustiqueError::ZipError {
             context: format!("Failed to open zip archive {:?}: {}", entry.file_name(),e),
             source: e
         })?;
-
     let mut mod_info_file = archive.by_name("modinfo.json")
         .map_err(|e| RustiqueError::ZipError {
             context: format!("Failed to find modinfo.json in {:?}: {}", entry.file_name(),e),
             source: e
         })?;
-
     let mut mod_info_contents = String::new();
     mod_info_file.read_to_string(&mut mod_info_contents)
         .map_err(|e| RustiqueError::IoError {
             context: format!("Failed to read modinfo.json in {:?}", entry.file_name()),
             source: e,
         })?;
-
     let mod_info = serde_json5::from_str::<ModInfo>(&mod_info_contents)
         .map_err(|e: serde_json5::Error| RustiqueError::JsonError {
             context: format!("Failed to parse json in {}", entry.file_name().unwrap_or_default().to_string_lossy()),
             source: e
         })?;
-
     Ok(mod_info)
 }
 
 pub fn extract_all_mods_metadata(mod_dir: &PathBuf) -> Result<HashMap<ModFileName, ModInfo>, RustiqueError> {
-
+    // This can remain synchronous since Tokio won't help with CPU-bound tasks
     let dir = fs::read_dir(mod_dir)
         .map_err(|e| RustiqueError::IoError {
             context: format!("Can't read mod_dir: {}", mod_dir.to_string_lossy()),
             source: e,
         })?;
-
     let entries_vec: Vec<DirEntry> = dir.filter_map(|e| e.ok()).collect();
     let mods = Arc::new(Mutex::new(HashMap::<ModFileName, ModInfo>::new()));
-
     let notify_of_unzipped_mods = match get_config().read() {
         Ok(config) => config.notify_of_unzipped_mods,
         Err(e) => {
@@ -185,6 +251,7 @@ pub fn extract_all_mods_metadata(mod_dir: &PathBuf) -> Result<HashMap<ModFileNam
         }
     };
 
+    // Use Rayon for CPU-bound tasks (zip processing is CPU-bound)
     entries_vec.par_iter().for_each(|entry| {
         let filename = entry.file_name().to_string_lossy().to_string();
         match (|| -> Result<ModInfo, RustiqueError> {
@@ -192,8 +259,6 @@ pub fn extract_all_mods_metadata(mod_dir: &PathBuf) -> Result<HashMap<ModFileNam
         })() {
             Ok(mod_info) => {mods.lock().unwrap().insert(filename, mod_info);}
             Err(e) =>  {
-
-                // verify_dir_is_mod(entry.path()) if true then display message
                 if matches!(e, RustiqueError::ModNotZipped(_)) && notify_of_unzipped_mods {
                     eprintln!("{}",e.to_string().yellow());
                 } else {
@@ -202,28 +267,124 @@ pub fn extract_all_mods_metadata(mod_dir: &PathBuf) -> Result<HashMap<ModFileNam
             }
         }
     });
-
     Ok(mods.lock().unwrap().clone())
 }
 
-pub fn delete_file(file: &Path) -> Result<(), RustiqueError> {
+
+
+pub async fn delete_file(file: &Path) -> Result<(), RustiqueError> {
     debug!("Trying to delete {}", file.display());
     if file.exists() && !file.is_dir() {
-        Ok(fs::remove_file(&file)
+        tokio::fs::remove_file(file).await
             .map_err(|e| RustiqueError::IoError {
                 context: format!("Failed attempting to delete {}", file.file_name().unwrap().to_string_lossy()),
                 source: e,
-            })?)
+            })
     } else {
         Err(RustiqueError::SimpleError(format!("File {} is no longer there!", file.display())))
     }
 }
 
-pub fn download_mod(mod_dir: &PathBuf, download_url: &String, api_client: &ApiClient) -> Result<ModInfo, RustiqueError> {
 
+// pub fn extract_zip_metadata(entry: PathBuf) -> Result<ModInfo, RustiqueError> {
+//     if entry.is_dir() {
+//         return Err(RustiqueError::ModNotZipped(entry.display().to_string()));
+//     }
+//
+//     if entry.extension().map_or(false, |x| x.to_ascii_lowercase() != "zip") {
+//         return Err(RustiqueError::SimpleError(format!("Skipping non-zip file: {}", entry.display())));
+//     }
+//
+//     let file  = File::open(&entry)
+//         .map_err(|e| RustiqueError::IoError {
+//             context: format!("Failed to open {:?}: {}", entry.file_name(), e),
+//             source: e,
+//         })?;
+//
+//
+//     let mut archive = ZipArchive::new(file)
+//         .map_err(|e| RustiqueError::ZipError {
+//             context: format!("Failed to open zip archive {:?}: {}", entry.file_name(),e),
+//             source: e
+//         })?;
+//
+//     let mut mod_info_file = archive.by_name("modinfo.json")
+//         .map_err(|e| RustiqueError::ZipError {
+//             context: format!("Failed to find modinfo.json in {:?}: {}", entry.file_name(),e),
+//             source: e
+//         })?;
+//
+//     let mut mod_info_contents = String::new();
+//     mod_info_file.read_to_string(&mut mod_info_contents)
+//         .map_err(|e| RustiqueError::IoError {
+//             context: format!("Failed to read modinfo.json in {:?}", entry.file_name()),
+//             source: e,
+//         })?;
+//
+//     let mod_info = serde_json5::from_str::<ModInfo>(&mod_info_contents)
+//         .map_err(|e: serde_json5::Error| RustiqueError::JsonError {
+//             context: format!("Failed to parse json in {}", entry.file_name().unwrap_or_default().to_string_lossy()),
+//             source: e
+//         })?;
+//
+//     Ok(mod_info)
+// }
+//
+// pub fn extract_all_mods_metadata(mod_dir: &PathBuf) -> Result<HashMap<ModFileName, ModInfo>, RustiqueError> {
+//
+//     let dir = fs::read_dir(mod_dir)
+//         .map_err(|e| RustiqueError::IoError {
+//             context: format!("Can't read mod_dir: {}", mod_dir.to_string_lossy()),
+//             source: e,
+//         })?;
+//
+//     let entries_vec: Vec<DirEntry> = dir.filter_map(|e| e.ok()).collect();
+//     let mods = Arc::new(Mutex::new(HashMap::<ModFileName, ModInfo>::new()));
+//
+//     let notify_of_unzipped_mods = match get_config().read() {
+//         Ok(config) => config.notify_of_unzipped_mods,
+//         Err(e) => {
+//             error!("Config error: {}", e.to_string());
+//             false
+//         }
+//     };
+//
+//     entries_vec.par_iter().for_each(|entry| {
+//         let filename = entry.file_name().to_string_lossy().to_string();
+//         match (|| -> Result<ModInfo, RustiqueError> {
+//             extract_zip_metadata(entry.path())
+//         })() {
+//             Ok(mod_info) => {mods.lock().unwrap().insert(filename, mod_info);}
+//             Err(e) =>  {
+//
+//                 // verify_dir_is_mod(entry.path()) if true then display message
+//                 if matches!(e, RustiqueError::ModNotZipped(_)) && notify_of_unzipped_mods {
+//                     eprintln!("{}",e.to_string().yellow());
+//                 } else {
+//                     debug!("{}", e.to_string().yellow());
+//                 }
+//             }
+//         }
+//     });
+//
+//     Ok(mods.lock().unwrap().clone())
+// }
+//
+// pub fn delete_file(file: &Path) -> Result<(), RustiqueError> {
+//     debug!("Trying to delete {}", file.display());
+//     if file.exists() && !file.is_dir() {
+//         Ok(fs::remove_file(&file)
+//             .map_err(|e| RustiqueError::IoError {
+//                 context: format!("Failed attempting to delete {}", file.file_name().unwrap().to_string_lossy()),
+//                 source: e,
+//             })?)
+//     } else {
+//         Err(RustiqueError::SimpleError(format!("File {} is no longer there!", file.display())))
+//     }
+// }
+pub async fn download_mod(mod_dir: &PathBuf, download_url: &String, api_client: &ApiClient) -> Result<ModInfo, RustiqueError> {
     let filename_before = &download_url.split('=').last().unwrap();
     let file_path_before = PathBuf::from(mod_dir.clone().join(filename_before));
-
     // Replace any spaces in the downloaded file with _ . This makes it easier to process later
     let filename_fix = mod_dir.clone().join(filename_before).to_string_lossy().replace(" ", "_");
     let file_path = PathBuf::from(filename_fix);
@@ -234,36 +395,225 @@ pub fn download_mod(mod_dir: &PathBuf, download_url: &String, api_client: &ApiCl
 
     let url = Url::parse(download_url.as_str())
         .map_err(|e| RustiqueError::UrlParseError(e))?;
-
     debug!("Trying to download url: {}", url.clone().to_string());
-    let response = api_client.get_request(&url.to_string())
+
+    // Retry logic - attempt download up to 3 times
+    let max_retries = 3;
+    let mut attempt = 0;
+    let mut last_error = None;
+
+    while attempt < max_retries {
+        attempt += 1;
+        debug!("Download attempt {} for {}", attempt, url);
+
+        match download_and_verify(&url, &file_path, api_client).await {
+            Ok(mod_info) => {
+                debug!("Successfully downloaded {} on attempt {}", file_path.display(), attempt);
+                return Ok(mod_info);
+            },
+            Err(e) => {
+                warn!("Download attempt {} failed for {}: {}", attempt, url, e);
+
+                // Clean up any partial downloads
+                if file_path.exists() {
+                    if let Err(clean_err) = tokio::fs::remove_file(&file_path).await {
+                        warn!("Failed to clean up partial download {}: {}", file_path.display(), clean_err);
+                    }
+                }
+
+                last_error = Some(e);
+
+                // Add a small delay between retries
+                if attempt < max_retries {
+                    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+                }
+            }
+        }
+    }
+
+    Err(last_error.unwrap_or_else(|| RustiqueError::SimpleError("Maximum retries exceeded".to_string())))
+}
+
+pub async fn download_and_verify(url: &Url, file_path: &PathBuf, api_client: &ApiClient) -> Result<ModInfo, RustiqueError> {
+    let response = api_client.get_request(&url.to_string()).await
         .map_err(|e| RustiqueError::SimpleError(e.to_string()))?;
 
-    let mut bytes: Vec<u8> = Vec::new();
+    // Check if we got a successful response
+    if !response.status().is_success() {
+        return Err(RustiqueError::SimpleError(
+            format!("Server returned error status: {}", response.status())
+        ));
+    }
 
-    response.into_body().into_reader().read_to_end(&mut bytes)
+    // Get the full response body
+    let bytes = response.bytes().await
         .map_err(|e| RustiqueError::IoError {
-            context: format!("Failure reading response from API {}", download_url.red()),
-            source: e,
+            context: format!("Failure reading response from API {}", url.to_string()),
+            source: std::io::Error::new(std::io::ErrorKind::Other, e),
         })?;
 
-    let mut file = File::create(&file_path)
+    // Verify we have actual content
+    if bytes.is_empty() {
+        return Err(RustiqueError::SimpleError("Downloaded file is empty".to_string()));
+    }
+
+    // Create and write to temp file first
+    let temp_file_path = file_path.with_extension("tmp");
+
+    let mut file = tokio::fs::File::create(&temp_file_path).await
         .map_err(|e| RustiqueError::IoError {
-            context: format!("Unable to create file {}", file_path.to_string_lossy()),
+            context: format!("Unable to create temp file {}", temp_file_path.to_string_lossy()),
             source: e
         })?;
 
-    file.write_all(&bytes)
+    file.write_all(&bytes).await
         .map_err(|e| RustiqueError::IoError {
-            context: format!("Failure while writing to byte array for {}", file_path.to_string_lossy()),
+            context: format!("Failure while writing to file {}", temp_file_path.to_string_lossy()),
+            source: e
+        })?;
+
+    // Ensure all data is written to disk
+    file.sync_all().await
+        .map_err(|e| RustiqueError::IoError {
+            context: format!("Failed to flush file data for {}", temp_file_path.to_string_lossy()),
+            source: e
+        })?;
+
+    // Close the file
+    drop(file);
+
+    // Pre-verify the zip file before extracting metadata
+    verify_zip_file(&temp_file_path)?;
+
+    // Rename temp file to final file
+    tokio::fs::rename(&temp_file_path, file_path).await
+        .map_err(|e| RustiqueError::IoError {
+            context: format!("Failed to rename temp file to {}", file_path.to_string_lossy()),
             source: e
         })?;
 
     debug!("File downloaded to {}", file_path.display());
 
-    Ok(extract_zip_metadata(file_path)?)
+    // Extract metadata from the downloaded file
+    extract_zip_metadata(file_path.clone())
 }
 
+pub fn verify_zip_file(file_path: &PathBuf) -> Result<(), RustiqueError> {
+    // Open and verify the zip file integrity
+    let file = File::open(file_path)
+        .map_err(|e| RustiqueError::IoError {
+            context: format!("Failed to open file for verification: {}", file_path.to_string_lossy()),
+            source: e,
+        })?;
+
+    let mut archive = ZipArchive::new(file)
+        .map_err(|e| RustiqueError::ZipError {
+            context: format!("Invalid zip file: {}", file_path.to_string_lossy()),
+            source: e
+        })?;
+
+    // Check that the archive contains at least one file
+    if archive.len() == 0 {
+        return Err(RustiqueError::SimpleError(format!("Zip file is empty: {}", file_path.to_string_lossy())));
+    }
+
+    // Verify we can access the modinfo.json
+    archive.by_name("modinfo.json")
+        .map_err(|e| RustiqueError::ZipError {
+            context: format!("Missing modinfo.json in zip: {}", file_path.to_string_lossy()),
+            source: e
+        })?;
+
+    Ok(())
+}
+// pub async fn download_mod(mod_dir: &PathBuf, download_url: &String, api_client: &ApiClient) -> Result<ModInfo, RustiqueError> {
+//     let filename_before = &download_url.split('=').last().unwrap();
+//     let file_path_before = PathBuf::from(mod_dir.clone().join(filename_before));
+//     // Replace any spaces in the downloaded file with _ . This makes it easier to process later
+//     let filename_fix = mod_dir.clone().join(filename_before).to_string_lossy().replace(" ", "_");
+//     let file_path = PathBuf::from(filename_fix);
+//
+//     if file_path.exists() && file_path_before.exists() {
+//         return Err(RustiqueError::SimpleError(format!("File {} already exists.", file_path.display())))
+//     }
+//
+//     let url = Url::parse(download_url.as_str())
+//         .map_err(|e| RustiqueError::UrlParseError(e))?;
+//     debug!("Trying to download url: {}", url.clone().to_string());
+//
+//     let response = api_client.get_request(&url.to_string()).await
+//         .map_err(|e| RustiqueError::SimpleError(e.to_string()))?;
+//
+//     let bytes = response.bytes().await
+//         .map_err(|e| RustiqueError::IoError {
+//             context: format!("Failure reading response from API {}", download_url.red()),
+//             source: std::io::Error::new(std::io::ErrorKind::Other, e),
+//         })?;
+//
+//     let mut file = tokio::fs::File::create(&file_path).await
+//         .map_err(|e| RustiqueError::IoError {
+//             context: format!("Unable to create file {}", file_path.to_string_lossy()),
+//             source: e
+//         })?;
+//
+//     file.write_all(&bytes).await
+//         .map_err(|e| RustiqueError::IoError {
+//             context: format!("Failure while writing to byte array for {}", file_path.to_string_lossy()),
+//             source: e
+//         })?;
+//
+//     debug!("File downloaded to {}", file_path.display());
+//
+//     // Assuming extract_zip_metadata is synchronous
+//     Ok(extract_zip_metadata(file_path)?)
+// }
+//
+
+// pub fn download_mod(mod_dir: &PathBuf, download_url: &String, api_client: &ApiClient) -> Result<ModInfo, RustiqueError> {
+//
+//     let filename_before = &download_url.split('=').last().unwrap();
+//     let file_path_before = PathBuf::from(mod_dir.clone().join(filename_before));
+//
+//     // Replace any spaces in the downloaded file with _ . This makes it easier to process later
+//     let filename_fix = mod_dir.clone().join(filename_before).to_string_lossy().replace(" ", "_");
+//     let file_path = PathBuf::from(filename_fix);
+//
+//     if file_path.exists() && file_path_before.exists() {
+//         return Err(RustiqueError::SimpleError(format!("File {} already exists.", file_path.display())))
+//     }
+//
+//     let url = Url::parse(download_url.as_str())
+//         .map_err(|e| RustiqueError::UrlParseError(e))?;
+//
+//     debug!("Trying to download url: {}", url.clone().to_string());
+//     let response = api_client.get_request(&url.to_string())
+//         .map_err(|e| RustiqueError::SimpleError(e.to_string()))?;
+//
+//     let mut bytes: Vec<u8> = Vec::new();
+//
+//     response.into_body().into_reader().read_to_end(&mut bytes)
+//         .map_err(|e| RustiqueError::IoError {
+//             context: format!("Failure reading response from API {}", download_url.red()),
+//             source: e,
+//         })?;
+//
+//     let mut file = File::create(&file_path)
+//         .map_err(|e| RustiqueError::IoError {
+//             context: format!("Unable to create file {}", file_path.to_string_lossy()),
+//             source: e
+//         })?;
+//
+//     file.write_all(&bytes)
+//         .map_err(|e| RustiqueError::IoError {
+//             context: format!("Failure while writing to byte array for {}", file_path.to_string_lossy()),
+//             source: e
+//         })?;
+//
+//     debug!("File downloaded to {}", file_path.display());
+//
+//     Ok(extract_zip_metadata(file_path)?)
+// }
+//
 
 // Replaces all instances of the newline and tab character from text, as well as excessive spaces.
 // This is a fix for https://github.com/Tekunogosu/Rustique/issues/3

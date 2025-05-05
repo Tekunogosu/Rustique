@@ -6,7 +6,7 @@ use colored::Colorize;
 pub enum RustiqueError {
     ApiError {
         context: String,
-        source: ureq::Error,
+        source: reqwest::Error,
     },
     DownloadError(String),
     IoError{

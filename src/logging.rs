@@ -20,13 +20,13 @@ pub enum VerboseLevel {
 pub fn init_logging(verbose: VerboseLevel) {
     let filter = match verbose {
         VerboseLevel::Verbose => {
-            EnvFilter::new("info,Rustique=info,ureq=info")
+            EnvFilter::new("info,Rustique=info,ureq=info,tokio=info,tokio_runtime=info")
         }
         VerboseLevel::Debug => {
-            EnvFilter::new("info,Rustique=debug,ureq=info")
+            EnvFilter::new("info,Rustique=debug,ureq=info,tokio=info,tokio_runtime=info")
         }
         _ => {
-            EnvFilter::new("warn,Rustique=warn,ureq=warn")
+            EnvFilter::new("info,Rustique=warn,ureq=warn,tokio=debug,tokio_runtime=debug")
         }
     };
 
