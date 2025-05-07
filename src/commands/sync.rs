@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use std::error::Error;
+use std::fmt::Error;
 use std::fs::File;
 use std::hash::Hash;
 use std::io::{Read, Write};
@@ -116,6 +118,21 @@ where
     Ok(json)
 }
 
+pub fn get_sync_data(mod_dir: &PathBuf) -> Result<RustiqueSyncJson, RustiqueError> {
+
+    let fp = mod_dir.join(PathBuf::from(SYNC_FILE_NAME));
+    if !fp.exists() {
+        sync(mod_dir)?;
+    }
+
+
+    Ok(parse_json_file::<RustiqueSyncJson>(&fp).map_err(|e| {
+        RustiqueError::JsonError {
+            context: format!("Failed to parse json file {}", fp.to_string_lossy()),
+            source: serde_json5::Error::from(format!("{}", e.to_string())),
+        }
+    }))?
+}
 
 
 
