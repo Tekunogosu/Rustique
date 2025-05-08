@@ -9,14 +9,12 @@ use std::process::exit;
 use std::sync::{Arc, Mutex};
 use std::time::{Instant, SystemTime};
 use chrono::{DateTime, Local, NaiveDateTime, Utc, Duration, TimeZone};
-use clap::builder::styling::RgbColor;
 use colored::Colorize;
 use comfy_table::{Cell, Row, Table, Color, Attribute, CellAlignment, TableComponent};
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
 use comfy_table::presets::{UTF8_BORDERS_ONLY, UTF8_FULL, UTF8_FULL_CONDENSED, UTF8_HORIZONTAL_ONLY};
 use dirs::home_dir;
 use rayon::prelude::*;
-use regex::Regex;
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use tokio::io::AsyncWriteExt;
@@ -249,8 +247,17 @@ pub async fn delete_file(file: &Path) -> Result<(), RustiqueError> {
 // Replaces all instances of the newline and tab character from text, as well as excessive spaces.
 // This is a fix for https://github.com/Tekunogosu/Rustique/issues/3
 pub fn sanitize_string(string: &str) -> String {
-    let re = Regex::new(r"[\n\t ]+").unwrap();
-    re.replace_all(string, " ").to_string()
+    // let re = Regex::new(r"[\n\t ]+").unwrap();
+    // re.replace_all(string, " ").to_string()
+    string
+        .split_whitespace()
+        .fold(String::new(), |mut acc, word| {
+            if !acc.is_empty() {
+                acc.push_str(" ");
+            }
+            acc.push_str(word);
+            acc
+        })
 }
 
 pub fn elapsed_footer(start_time: Instant, operation: &str) {

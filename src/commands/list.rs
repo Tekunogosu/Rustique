@@ -16,7 +16,6 @@ use std::time::Instant;
 use colored::Colorize;
 use comfy_table::modifiers::{UTF8_ROUND_CORNERS, UTF8_SOLID_INNER_BORDERS};
 use comfy_table::presets::{UTF8_BORDERS_ONLY, UTF8_FULL, UTF8_HORIZONTAL_ONLY, UTF8_NO_BORDERS};
-use regex::Regex;
 use tracing::info;
 use zip::ZipArchive;
 use crate::aliases::ModID;
