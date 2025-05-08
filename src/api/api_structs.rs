@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::fmt::Display;
 use serde::{Deserialize, Serialize};
-use ureq::http::StatusCode;
 
 use crate::aliases::{ModID, ModVersion};
 

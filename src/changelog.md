@@ -1,5 +1,12 @@
 
 
+# Version 0.2.1-alpha
+* Using -v now shows the correct mod directory that Rustique is looking at
+* Misbehaving mods are now added to an exclusion list so they are skipped in the future. You can view this list with `rustique config list --exclusions`
+* Added compiler flags to make the Rustique binary smaller and reduced features from used libraries. (saves a few MBs from the executable)
+* Added misc command for generating auto complete for the shells zsh,bash,fish,powershell. `./Rustique help misc`
+
+
 # Version 0.2.0-alpha
 * Fixed api error message with blank info. 
 * Config file is now live! You can easily set the default mod directory so you don't have to use -m for each use if different than default.
@@ -17,3 +24,4 @@
 * Full rework of mod installation and dependency resolution. Update & Install are dramatically faster.
 * Reworked how the modinfo.json data is extracted, should make sync a bit faster.
 * Rustique can now attempt to find the modid from various methods to manage your mods. Users will be notified if Rustique cannot determine the mod_id. 
+* After installing updates or new mods, there is now a table that displays the mods and their versions. 

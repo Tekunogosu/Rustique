@@ -20,13 +20,14 @@ use std::io::Read;
 use std::path::PathBuf;
 use std::process::exit;
 use std::time::Instant;
-use clap::{Args, CommandFactory, FromArgMatches, Parser, Subcommand};
+use clap::{Args, Command, CommandFactory, FromArgMatches, Parser, Subcommand};
+use clap_complete::{generate, Shell};
 use colored::Colorize;
 use tracing::field::debug;
 use tracing::{debug, error, info, trace, warn, Level};
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 use crate::aliases::ModID;
-use crate::cli_commands::{Cli, Commands};
+use crate::cli_commands::{Cli, Commands, ShellType};
 use crate::commands::list::list_installed;
 use crate::utils::{elapsed_footer, get_expanded_path, RustiqueOptions};
 use commands::sync::sync;
@@ -78,9 +79,11 @@ async fn async_main() {
     let mut mod_dir = mod_opts.get_mod_path();
     // the mods_dir from the cli takes priority from all other means, including the config file
     if cli.mods_dir.is_some() {
-        mod_dir = get_expanded_path(PathBuf::from(cli.mods_dir.unwrap()));
+        mod_dir = get_expanded_path(PathBuf::from(cli.mods_dir.clone().unwrap()));
     }
-    info!("Operating on mods dir: {:?}", mod_opts.mod_dir);
+
+    info!("Operating on mods dir: {:?}", mod_dir);
+
     // TODO: check for windows equiv
     match &cli.command {
         Commands::Sync(args) => {
@@ -155,6 +158,11 @@ async fn async_main() {
         Commands::Config(config_cmd) => {
             parse_config_args(config_cmd);
         }
+        Commands::Misc{ gen_auto_complete } => {
+            if let Some(shell) = gen_auto_complete {
+                generate_completion(shell.clone());
+            }
+        }
         Commands::Info(args) => {
             info!("displaying stuff about the mod {:?}", args.mod_id);
         }
@@ -228,185 +236,32 @@ async fn handle_sync_call(mod_dir: &PathBuf) {
     }
 }
 
-//
-// // TODO: Add feature to notify user when the modinfo.json file is malformed
-// fn main() {
-//
-//     let cli = Cli::parse();
-//
-//     let verbosity = if cli.debug {
-//         VerboseLevel::Debug
-//     } else if cli.verbose {
-//         VerboseLevel::Verbose
-//     } else {
-//         VerboseLevel::Default
-//     };
-//
-//     init_logging(verbosity);
-//
-//     // setup the config global
-//     // ideally this *could* be setup by the user on where they want the config to be loaded from,
-//     // but for now it will always be in .config/rustique
-//     // this will need to be modified to work with windows using %appdata%
-//     match init_config(None) {
-//         Ok(_) => {},
-//         Err(e) => {
-//             debug!("{}", e.to_string().red().bold());
-//         }
-//     }
-//
-//     if cli.verbose {
-//         debug!("Verbose logging enabled");
-//     }
-//
-//     let mut mod_opts: RustiqueOptions = RustiqueOptions::default();
-//
-//     let mut mod_dir = mod_opts.get_mod_path();
-//
-//     // the mods_dir from the cli takes priority from all other means, including the config file
-//     if cli.mods_dir.is_some() {
-//         mod_dir = get_expanded_path(PathBuf::from(cli.mods_dir.unwrap()));
-//     }
-//
-//     info!("Operating on mods dir: {:?}", mod_opts.mod_dir);
-//
-//     // TODO: check for windows equiv
-//     match &cli.command {
-//         Commands::Sync => {
-//             // Sync will add a rustique-sync.json to a valid mod_dir
-//             handle_sync_call(&mod_dir);
-//         }
-//         Commands::List(args) => {
-//             match list_installed(&mod_dir, args.updates) {
-//                 Ok(_) => {}
-//                 Err(e) => {
-//                     error!("{}", e.to_string().red().bold());
-//                     exit(1);
-//                 }
-//             }
-//         }
-//         Commands::Update(args) => {
-//             match update_mods(&mod_dir, args.mod_ids.clone(), args.keep_old_files) {
-//                 Ok(_) => {
-//                     handle_sync_call(&mod_dir);
-//                 }
-//                 Err(e) => {
-//                     warn!("{}", e.to_string().red().bold());
-//                     exit(1);
-//                 }
-//             }
-//         }
-//         Commands::Changelog(name) => {
-//             println!("list {:?}", name.name);
-//         }
-//         Commands::Install(args) => {
-//             let start_time = Instant::now();
-//             let config = get_config().read().unwrap();
-//
-//             if args.mod_ids.len() > 0 {
-//                 let mod_ids: HashSet<ModID> = args.mod_ids.iter().cloned().collect();
-//
-//                 match install_mods(&mod_dir, InstallOrUpdate::Install(mod_ids)) {
-//                     Ok(_) => {
-//                         if args.mod_ids.len() > 1 {
-//                             // eprintln!("{}", "Mods successfully installed!".bold().green());
-//                             info!("Mods successfully installed!");
-//                         } else {
-//                             // eprintln!("{}", "Mod successfully installed!".bold().green());
-//                             info!("Mods successfully installed!");
-//                         }
-//
-//                         handle_sync_call(mod_opts.mod_dir.as_ref().unwrap());
-//                     }
-//                     Err(e) => {
-//                         error!("Error attempting to install {:?} : {}", args.mod_ids, e.to_string());
-//                         exit(1);
-//                     }
-//                 }
-//
-//             }
-//
-//             if args.missing_dependencies {
-//
-//                 match install_missing_dependencies(&mod_dir, None) {
-//                     Ok(_) => {
-//                         info!("{}", "All dependencies resolved..".bold().green());
-//                     }
-//                     Err(e) => {
-//                         error!("{}", e.to_string());
-//                         exit(1);
-//                     }
-//                 }
-//             }
-//
-//             if config.show_execution_time {
-//                 elapsed_footer(start_time, "Install");
-//             }
-//         }
-//
-//         Commands::Config(config_cmd) => {
-//             parse_config_args(config_cmd);
-//         }
-//
-//         Commands::Info(args) => {
-//             info!("displaying stuff about the mod {:?}", args.mod_id);
-//         }
-//         Commands::Search(_args )=> {
-//             info!("Searching stuff");
-//         }
-//         Commands::ModPack{command} => {
-//             match command {
-//                 ModpackCommands::Create(args) => {
-//                     if args.mod_dir.is_some() {
-//                         println!("Creating mod pack from {}", mod_dir.as_path().display());
-//                     }
-//
-//                     println!("creating modpack with name: {}", &args.name);
-//                 }
-//             }
-//         }
-//         #[cfg(feature = "dev")]
-//         Commands::BulkDownloader(args) => {
-//             match bulk_download(&mod_dir, args.num_to_download) {
-//                 Ok(_) => {
-//                     info!("All mods downloaded.. hopefully..");
-//                 }
-//                 Err(e) => {
-//                     error!("{}", e.to_string());
-//                 }
-//             }
-//         }
-//
-//         #[cfg(feature = "dev")]
-//         Commands::TestCommand(args) => {
-//             {
-//                 let mut config = get_config().write().unwrap();
-//                 config.pinned_game_version = args.version_to_pin.to_string();
-//                 config.save(None).unwrap();
-//             }
-//
-//             {
-//                let config = get_config().read().unwrap();
-//                 info!("{:?}", config);
-//             }
-//         }
-//         #[cfg(feature = "dev")]
-//         Commands::LoadMods(args) => {
-//             let file_path = get_expanded_path(PathBuf::from(args.filename.clone()));
-//             let mut contents = String::new();
-//             let mut mod_file = File::open(file_path).unwrap();
-//             mod_file.read_to_string(&mut contents).unwrap();
-//
-//             let list : Vec<String> = contents.split('\n').map(|s| s.to_string()).collect();
-//
-//             info!("{:?}", list);
-//             info!("COUNT: {}", list.len());
-//
-//             let set : HashSet<String> = HashSet::from_iter(list);
-//
-//             install_mods(&mod_dir, InstallOrUpdate::Install(set)).unwrap();
-//         }
-//
-//
-//     }
-// }
+fn generate_completion(shell: ShellType) {
+    let mut cmd = Cli::command();
+    let shell: Shell = shell.into();
+
+    // Generate the completion script to stdout
+    generate(shell, &mut cmd, "Rustique", &mut io::stdout());
+
+    println!("\n# Completion script generated. To use it:");
+    match shell {
+        Shell::Bash => {
+            println!("# Save the above output to ~/.local/share/bash-completion/completions/Rustique");
+            println!("# Or run: Rustique misc --gen-auto-complete bash > ~/.local/share/bash-completion/completions/Rustique");
+        }
+        Shell::Zsh => {
+            println!("# Save the above output to ~/.zsh/completion/_Rustique");
+            println!("# Or run: Rustique misc --gen-auto-complete zsh > ~/.zsh/completion/_Rustique");
+            println!("# Then add to your .zshrc: fpath=(~/.zsh/completion $fpath)");
+        }
+        Shell::Fish => {
+            println!("# Save the above output to ~/.config/fish/completions/Rustique.fish");
+            println!("# Or run: Rustique misc --gen-auto-complete fish > ~/.config/fish/completions/Rustique.fish");
+        }
+        Shell::PowerShell => {
+            println!("# Save the above output to a file and source it in your PowerShell profile");
+            println!("# Or run: Rustique misc --gen-auto-complete powershell > Rustique.ps1");
+        }
+        _ => {}
+    }
+}

@@ -18,7 +18,6 @@ use comfy_table::modifiers::{UTF8_ROUND_CORNERS, UTF8_SOLID_INNER_BORDERS};
 use comfy_table::presets::{UTF8_BORDERS_ONLY, UTF8_FULL, UTF8_HORIZONTAL_ONLY, UTF8_NO_BORDERS};
 use regex::Regex;
 use tracing::info;
-use ureq::get;
 use zip::ZipArchive;
 use crate::aliases::ModID;
 use crate::config_manager::get_config;

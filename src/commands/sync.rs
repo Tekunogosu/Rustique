@@ -13,7 +13,6 @@ use colored::{Color, Colorize};
 use comfy_table::Attribute;
 use rayon::prelude::*;
 use serde_json::to_string_pretty;
-use ureq::Agent;
 use semver::{Version};
 use tokio::io::AsyncWriteExt;
 use tracing::{debug, error, info, warn};

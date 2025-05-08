@@ -1,4 +1,5 @@
-use clap::{Args, Parser, Subcommand, ArgGroup};
+use clap::{Args, Parser, Subcommand, ArgGroup, ValueEnum};
+use clap_complete::Shell;
 use crate::commands::arg_structs::changelog_args::ChangeLogArgs;
 use crate::commands::arg_structs::config_args::ConfigCommand;
 use crate::commands::arg_structs::info_args::ModInfoArgs;
@@ -48,6 +49,12 @@ pub enum Commands {
 
     #[command(about = "Manage config options for Rustique")]
     Config(ConfigCommand),
+
+    #[command(about = "Miscellaneous items for Rustique, like shell auto-completion")]
+    Misc {
+          #[arg(short, long = "gen-auto-complete", value_name = "SHELL")]
+          gen_auto_complete: Option<ShellType>,
+    },
 
     #[command(about = "View the changelogs for a installed mod (Not Implemented)")]
     Changelog(ChangeLogArgs),
@@ -106,3 +113,21 @@ pub struct BulkDownloadCommands {
 }
 
 
+#[derive(Clone, ValueEnum)]
+pub enum ShellType {
+    Bash,
+    Fish,
+    Zsh,
+    PowerShell
+}
+
+impl From<ShellType> for Shell {
+    fn from(shell: ShellType) -> Self {
+        match shell {
+            ShellType::Bash => Shell::Bash,
+            ShellType::Fish => Shell::Fish,
+            ShellType::Zsh => Shell::Zsh,
+            ShellType::PowerShell => Shell::PowerShell,
+        }
+    }
+}
