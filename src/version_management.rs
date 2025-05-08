@@ -1,11 +1,10 @@
-use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Mutex};
-use semver::{Error, Version};
-use serde::{Deserialize, Serialize};
-use tracing::info;
 use crate::aliases::{DownloadURL, ModID, ModVersion};
-use crate::api::api_structs::{GameVersion, Releases};
+use crate::api::api_structs::{Releases};
 use crate::rustique_errors::RustiqueError;
+use semver::{Version};
+use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
+use tracing::info;
 
 
 #[derive(Deserialize, Serialize, Debug, Clone)]

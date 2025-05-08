@@ -1,25 +1,16 @@
-use std::collections::HashMap;
-use std::fmt::format;
-use std::fs::File;
-use std::io::{Read, Write};
-use std::path::{Path, PathBuf};
-use crate::api::client::ApiClient;
-use crate::commands::sync::{parse_json_file, sync, ModSyncInfo, RustiqueSyncJson, SYNC_FILE_NAME};
-use crate::utils::{delete_file, RustiqueOptions, elapsed_footer, notice, display_installation_results};
-use rayon::prelude::*;
-use std::process::exit;
-use std::time::Instant;
-use colored::Colorize;
-use comfy_table::{Attribute, Color, Row, Table, Cell, CellAlignment};
-use comfy_table::modifiers::UTF8_ROUND_CORNERS;
-use comfy_table::presets::UTF8_FULL_CONDENSED;
-use tracing::{debug, error, info, warn};
-use url::{form_urlencoded, Url};
 use crate::aliases::ModID;
-use crate::api::download::download_requested_mods;
+use crate::commands::sync::{parse_json_file, ModSyncInfo, RustiqueSyncJson, SYNC_FILE_NAME};
 use crate::config_manager::get_config;
 use crate::install_manager::{install_manager, Install, Installed};
 use crate::rustique_errors::RustiqueError;
+use crate::utils::{delete_file, display_installation_results, elapsed_footer, notice};
+use colored::Colorize;
+use comfy_table::{Attribute, Color};
+use std::collections::HashMap;
+use std::path::{PathBuf};
+use std::process::exit;
+use std::time::Instant;
+use tracing::{debug, info};
 
 pub async fn update_mods(mod_dir: &PathBuf, update_mod_ids: Vec<ModID>, _keep_old_files: bool) -> Result<(), RustiqueError> {
     let start_time = Instant::now();

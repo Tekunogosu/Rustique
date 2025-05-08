@@ -1,7 +1,7 @@
-
-use std::fmt;
 use colored::Colorize;
+use std::fmt;
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub enum RustiqueError {
     ApiError {

@@ -1,4 +1,4 @@
-use clap::{Args, Subcommand,ArgGroup};
+use clap::{ArgGroup, Args, Subcommand};
 
 #[derive(Args)]
 pub struct ConfigCommand {

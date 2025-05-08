@@ -1,41 +1,28 @@
-use std::collections::{HashMap, HashSet};
-use std::error::Error;
-use std::{fs, io};
-use std::fmt::Display;
-use std::fs::{DirEntry, File};
-use std::io::{Read, Write};
-use std::path::{Path, PathBuf};
-use std::process::exit;
-use std::sync::{Arc, Mutex};
-use std::time::{Instant, SystemTime};
-use chrono::{DateTime, Local, NaiveDateTime, Utc, Duration, TimeZone};
+use crate::aliases::{ModFileName, ModID};
+use crate::api::api_structs::ModInfo;
+use crate::commands::sync::ModSyncInfo;
+use crate::config_manager::get_config;
+use crate::install_manager::{Install, Installed};
+use crate::rustique_errors::RustiqueError;
+use chrono::{DateTime, Duration, NaiveDateTime, Utc};
 use colored::Colorize;
-use comfy_table::{Cell, Row, Table, Color, Attribute, CellAlignment, TableComponent};
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
-use comfy_table::presets::{UTF8_BORDERS_ONLY, UTF8_FULL, UTF8_FULL_CONDENSED, UTF8_HORIZONTAL_ONLY};
+use comfy_table::presets::{UTF8_BORDERS_ONLY, UTF8_FULL_CONDENSED};
+use comfy_table::{Attribute, Cell, CellAlignment, Color, Row, Table};
 use dirs::home_dir;
 use rayon::prelude::*;
-use semver::Version;
-use serde::{Deserialize, Serialize};
-use tokio::io::AsyncWriteExt;
-use toml::value::Time;
-use tracing::{debug, error, warn};
-use tracing::span::Attributes;
-use tracing_subscriber::fmt::time;
-use url::Url;
-use zip::result::ZipError;
+use std::collections::HashMap;
+use std::fs::{DirEntry, File};
+use std::io::{Read};
+use std::path::{Path, PathBuf};
+use std::time::{Instant};
+use std::{fs};
+use tracing::{debug, error};
 use zip::ZipArchive;
-use crate::aliases::{ModFileName, ModID, ModVersion};
-use crate::api::client::ApiClient;
-use crate::api::api_structs::ModInfo;
-use crate::config_manager::get_config;
-use crate::install_manager::Installed;
-use crate::rustique_errors::RustiqueError;
 
 #[derive(Clone, Debug)]
 pub struct RustiqueOptions {
     pub mod_dir: Option<PathBuf>,
-    pub mod_id: Option<String>,
 }
 
 impl RustiqueOptions {
@@ -51,7 +38,6 @@ impl RustiqueOptions {
         if let Some(path) = std::env::var_os("APPDATA") {
             return RustiqueOptions {
                 mod_dir: Some(PathBuf::from(path).join("Vintagestory").join("Mods")),
-                mod_id: None,
             }
         }
         panic!("Unable to determine default mods directory");
@@ -62,7 +48,6 @@ impl RustiqueOptions {
         if let Some(home) = home_dir() {
             return RustiqueOptions {
                 mod_dir: Some(home.join(".config").join("VintagestoryData").join("Mods")),
-                mod_id: None,
             };
         }
         panic!("Unable to determine user's home directory, do you have permissions??");
@@ -86,15 +71,6 @@ pub fn get_current_time() -> String {
     datetime.format("%Y-%m-%d %H:%M").to_string()
 }
 
-pub fn is_today(timestamp: &String) -> bool {
-   let now = Utc::now().date_naive();
-    if let Ok(ts) = NaiveDateTime::parse_from_str(&timestamp, "%Y-%m-%d %H:%M") {
-        ts.date() == now
-    } else {
-        false
-    }
-}
-
 pub fn timestamp_older_than(num_hours: i64, timestamp: &String) -> bool {
 
     let naive_dt = NaiveDateTime::parse_from_str(&timestamp, "%Y-%m-%d %H:%M").map_err(|e| {error!("{}", e)}).unwrap_or_default();
@@ -116,23 +92,6 @@ pub fn get_expanded_path(dir: PathBuf) -> PathBuf {
 
     dir
 }
-
-// this function filters out any unwanted dependencies
-pub fn find_missing_dependencies(
-    dep_list: Option<HashMap<ModID, ModVersion>>,
-    excluded_ids: Option<&HashSet<ModID>>,
-) -> Vec<ModID> {
-    let default_exclusions = ["game", "survival", "creative"];
-    let empty_set :HashSet<ModID> = HashSet::new();
-    let excluded = excluded_ids.unwrap_or(&empty_set);
-    dep_list.unwrap_or_default()
-        .keys()
-        .filter(|mod_id|
-            !default_exclusions.contains(&mod_id.to_lowercase().as_str())
-            && !excluded.contains(&mod_id.to_lowercase().to_string())
-        ).cloned().collect()
-}
-
 
 pub fn extract_zip_metadata(entry: PathBuf) -> Result<ModInfo, RustiqueError> {
     // This function doesn't need async as it's doing synchronous file operations
@@ -402,3 +361,39 @@ fn fill_table_body(list: &mut Vec<Installed>, table: &mut Table, l_color: Color,
     });
 }
 
+
+// Helper function to get just installed dependencies by passing empty vec and hashmap to the parts that filter out dependencies
+pub fn gather_dependencies(installed_mods: &HashMap<ModFileName, ModInfo>) -> Result<Vec<Install>, RustiqueError> {
+    gather_missing_dependencies(installed_mods, &vec![], &HashMap::new())
+}
+
+pub fn gather_missing_dependencies(installed_mods: &HashMap<ModFileName, ModInfo>, mods_requested: &Vec<ModID>, sync_data: &HashMap<ModID, ModSyncInfo>) -> Result<Vec<Install>, RustiqueError> {
+    // if there are reports of slowness is this section .values().par_bridge()...flat_map_iter() could be used to speed it up
+    // this is prob not an issue even with a lot of mods as the data is all in memory at this point
+    let id_vec: Vec<ModID> = sync_data.keys().cloned().collect();
+
+    Ok(installed_mods
+        .values()
+        .filter(|mod_info| mods_requested.is_empty() || mods_requested.contains(&mod_info.mod_id))
+        .flat_map(|mod_info| {
+            mod_info.dependencies.as_ref()
+                .map(|hm| hm.iter()
+                    .filter_map(|(mod_id, version)|
+                        if !mod_id.contains("game")
+                            && !mod_id.contains("survival")
+                            && !mod_id.contains("creative")
+                            && !id_vec.contains(&mod_id) {
+                            Some(Install {
+                                mod_id: mod_id.clone(),
+                                mod_name: "".to_string(),
+                                version_to_install: version.clone(),
+                                download_url: "".to_string(),
+                                current_file_path: None,
+                            })
+                        } else {
+                            None
+                        }).collect::<Vec<_>>()
+                ).unwrap_or_default()
+                .into_iter()
+        }).collect())
+}

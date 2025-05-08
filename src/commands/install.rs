@@ -1,25 +1,13 @@
-use crate::aliases::{ModFileName, ModID, ModVersion};
-use crate::rustique_errors::RustiqueError;
-use crate::utils::{extract_all_mods_metadata, find_missing_dependencies, extract_zip_metadata, notice, elapsed_footer, display_installation_results};
-use colored::Colorize;
-use rayon::prelude::*;
-use std::collections::{HashMap, HashSet};
-use std::hash::Hash;
-use std::path::PathBuf;
-use std::process::exit;
-use std::sync::{Arc, Mutex};
-use std::time::Instant;
-use comfy_table::{Attribute, Color};
-use lenient_semver::parse;
-use tracing::{debug, error, info, warn};
-use rayon::prelude::*;
-use crate::api::api_structs::ModInfo;
+use crate::aliases::ModID;
 use crate::api::client::ApiClient;
-use crate::commands::sync::{get_sync_data, parse_json_file, ModSyncInfo, RustiqueSyncJson};
-use crate::config_manager::get_config;
+use crate::commands::sync::{get_sync_data};
 use crate::install_manager::{install_manager, Install};
+use crate::rustique_errors::RustiqueError;
 use crate::rustique_errors::RustiqueError::SimpleError;
-use crate::version_management::{parse_latest_version, parse_version};
+use crate::utils::{display_installation_results, extract_all_mods_metadata, gather_missing_dependencies, notice};
+use crate::version_management::{parse_latest_version};
+use std::path::PathBuf;
+use tracing::{debug, info};
 
 
 // Report if trying install a mod that already exists
@@ -76,35 +64,11 @@ pub async fn install_missing_deps(mod_dir: &PathBuf, mods_requested: Vec<ModID>)
 
     let installed_mods = extract_all_mods_metadata(mod_dir)?;
     let sync_data = get_sync_data(mod_dir).await?.rustique_sync.clone();
-    let id_vec: Vec<ModID> = sync_data.keys().cloned().collect();
 
 
     // if there are reports of slowness is this section .values().par_bridge()...flat_map_iter() could be used to speed it up
     // this is prob not an issue even with a lot of mods as the data is all in memory at this point
-    let mut missing_deps: Vec<Install> = installed_mods
-        .values()
-        .filter(|mod_info| mods_requested.is_empty() || mods_requested.contains(&mod_info.mod_id))
-        .flat_map(|mod_info| {
-            mod_info.dependencies.as_ref()
-                .map(|hm| hm.iter()
-                    .filter_map(|(mod_id, version)|
-                        if !mod_id.contains("game")
-                            && !mod_id.contains("survival")
-                            && !mod_id.contains("creative")
-                            && !id_vec.contains(&mod_id) {
-                            Some(Install {
-                                mod_id: mod_id.clone(),
-                                mod_name: "".to_string(),
-                                version_to_install: version.clone(),
-                                download_url: "".to_string(),
-                                current_file_path: None,
-                            })
-                        } else {
-                            None
-                        }).collect::<Vec<_>>()
-                ).unwrap_or_default()
-                .into_iter()
-    }).collect();
+    let mut missing_deps: Vec<Install> = gather_missing_dependencies(&installed_mods, &mods_requested, &sync_data)?;
 
     let client = ApiClient::new();
 
@@ -134,3 +98,5 @@ pub async fn install_missing_deps(mod_dir: &PathBuf, mods_requested: Vec<ModID>)
 
     Ok(())
 }
+
+

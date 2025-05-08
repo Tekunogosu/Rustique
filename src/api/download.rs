@@ -1,17 +1,12 @@
-use std::collections::HashSet;
-use std::path::PathBuf;
-use std::fs::File;
-use colored::Colorize;
-use tokio::io::AsyncWriteExt;
-use tracing::{debug, error, info, warn};
-use url::Url;
-use zip::ZipArchive;
-use crate::aliases::ModID;
-use crate::api::api_structs::ModInfo;
 use crate::api::client::ApiClient;
 use crate::install_manager::{Install, Installed};
 use crate::rustique_errors::RustiqueError;
-use crate::utils::{extract_zip_metadata, verify_zip_file};
+use crate::utils::{verify_zip_file};
+use colored::Colorize;
+use std::path::PathBuf;
+use tokio::io::AsyncWriteExt;
+use tracing::{debug,info, warn};
+use url::Url;
 
 
 pub async fn download_requested_mods(mod_dir: &PathBuf, mods_requested: &mut Vec<Install>, api_client: &ApiClient) -> Result<Vec<Installed>, RustiqueError> {

@@ -1,41 +1,33 @@
-use std::collections::HashSet;
-use crate::api::api_structs::ModInfo;
-use crate::commands::sync::{parse_json_file, RustiqueSyncJson, SYNC_FILE_NAME};
-use crate::utils::{RustiqueOptions, extract_all_mods_metadata, extract_zip_metadata, find_missing_dependencies, sanitize_string, elapsed_footer};
-use comfy_table::{Attribute, Cell, CellAlignment, Color, ContentArrangement, Row, Table, TableComponent};
-use rayon::prelude::*;
-use std::error::Error;
-use std::fmt::format;
-use std::fs;
-use std::fs::{DirEntry, File};
-use std::io::{Read, stdin};
-use std::ops::Add;
-use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
-use std::time::Instant;
-use colored::Colorize;
-use comfy_table::modifiers::{UTF8_ROUND_CORNERS, UTF8_SOLID_INNER_BORDERS};
-use comfy_table::presets::{UTF8_BORDERS_ONLY, UTF8_FULL, UTF8_HORIZONTAL_ONLY, UTF8_NO_BORDERS};
-use tracing::info;
-use zip::ZipArchive;
 use crate::aliases::ModID;
+use crate::api::api_structs::ModInfo;
+use crate::commands::sync::{get_sync_data, ModSyncInfo};
 use crate::config_manager::get_config;
+use crate::install_manager::Install;
 use crate::rustique_errors::RustiqueError;
+use crate::utils::{extract_all_mods_metadata, gather_dependencies, gather_missing_dependencies, sanitize_string};
 use crate::version_management::parse_version;
+use colored::Colorize;
+use comfy_table::modifiers::UTF8_ROUND_CORNERS;
+use comfy_table::presets::UTF8_FULL;
+use comfy_table::{Attribute, Cell, Color, ContentArrangement, Row, Table};
+use std::collections::HashMap;
+use std::path::PathBuf;
+use std::time::Instant;
 
 pub async fn list_installed(mod_dir: &PathBuf, only_updated: bool) -> Result<(), RustiqueError> {
     let start_time = Instant::now();
     let config = get_config().read().unwrap();
 
     // check for sync data so we can show latest version
-    let sync_data = parse_json_file::<RustiqueSyncJson>(&PathBuf::from(mod_dir).join(SYNC_FILE_NAME));
+    let sync_data = get_sync_data(mod_dir).await?.rustique_sync;
+    let mut table = setup_table_from_sync(Some(&sync_data));
 
-    let mut table = setup_table_from_sync(&sync_data);
+    let installed_mods = extract_all_mods_metadata(&mod_dir)?;
 
-    let sync_data_unwrapped = sync_data.as_ref().ok();
+    let missing_dependencies = gather_missing_dependencies(&installed_mods, &vec![], &sync_data)?;
+    let all_dependencies = gather_dependencies(&installed_mods)?;
 
-    let metadata = extract_all_mods_metadata(&mod_dir)?;
-    let mut metadata: Vec<&ModInfo> = metadata.values().collect();
+    let mut metadata: Vec<&ModInfo> = installed_mods.values().collect();
 
     let total_mod_count = metadata.len();
 
@@ -43,14 +35,13 @@ pub async fn list_installed(mod_dir: &PathBuf, only_updated: bool) -> Result<(),
 
     let metadata: Vec<&ModInfo> = if only_updated {
         metadata.into_iter().filter(|mod_info| {
-            if let Some(data) = &sync_data_unwrapped {
-                if let Some(sync) = data.rustique_sync.get(mod_info.mod_id.as_str()) {
-                    let latest = sync.latest_known_version.to_string();
-                    let current = sync.installed_version.to_string();
-                    return &latest != &current;
-                }
+            if let Some(sync) = sync_data.get(mod_info.mod_id.as_str()) {
+                let latest = sync.latest_known_version.to_string();
+                let current = sync.installed_version.to_string();
+                return &latest != &current;
+            } else {
+                false
             }
-            false
         }).collect::<Vec<&ModInfo>>()
     } else {
         metadata
@@ -61,10 +52,6 @@ pub async fn list_installed(mod_dir: &PathBuf, only_updated: bool) -> Result<(),
         return Ok(());
     }
 
-    let mod_id_list: HashSet<ModID> = metadata.clone()
-        .into_iter().map(|mod_info| mod_info.mod_id.clone()).collect();
-
-
 
     metadata.into_iter().for_each(|mod_info| {
         let mut row = Row::new();
@@ -74,31 +61,34 @@ pub async fn list_installed(mod_dir: &PathBuf, only_updated: bool) -> Result<(),
         let installed_version = parse_version(mod_info.version.clone().unwrap_or_default()).unwrap().to_string();
         let installed_version_cell = Cell::new(&installed_version).add_attribute(Attribute::Dim);
         let mut latest_version_cell: Cell = Cell::new("N/A");
-        if let Some(data) = &sync_data_unwrapped {
-            if let Some(sync) = data.rustique_sync.get(mod_info.mod_id.as_str()) {
+        if let Some(sync) = sync_data.get(mod_info.mod_id.as_str()) {
 
-                let latest_version = sync.latest_known_version.to_string();
+            let latest_version = sync.latest_known_version.to_string();
 
-                latest_version_cell = Cell::new(&sync.latest_known_version.to_string());
+            latest_version_cell = Cell::new(&sync.latest_known_version.to_string());
 
-                if latest_version.eq(&installed_version) {
-                    latest_version_cell = latest_version_cell.fg(Color::Green).add_attribute(Attribute::Dim);
-                } else {
-                    latest_version_cell = latest_version_cell.add_attribute(Attribute::Bold).fg(Color::Red);
-                }
+            if latest_version.eq(&installed_version) {
+                latest_version_cell = latest_version_cell.fg(Color::Green).add_attribute(Attribute::Dim);
+            } else {
+                latest_version_cell = latest_version_cell.add_attribute(Attribute::Bold).fg(Color::Red);
             }
         }
         row.add_cell(installed_version_cell);
 
-        if sync_data.as_ref().is_ok() {
+        if sync_data.len() > 0 {
             row.add_cell(latest_version_cell);
         }
 
-        let dep_list = find_missing_dependencies(mod_info.dependencies.clone(), None).join(",");
+
+
+        let dep_list = grab_this_mod_deps(mod_info, all_dependencies.clone());
+
         let mut dep_cell = Cell::new(dep_list);
         dep_cell = dep_cell.set_delimiter(',');
 
-        let missing_dep = find_missing_dependencies(mod_info.dependencies.clone(), Option::from(&mod_id_list)).join(",");
+
+        let missing_dep = grab_this_mod_deps(mod_info, missing_dependencies.clone());
+
         let mut missing_dep_cell = Cell::new(missing_dep);
         missing_dep_cell = missing_dep_cell.set_delimiter(',');
 
@@ -124,8 +114,14 @@ pub async fn list_installed(mod_dir: &PathBuf, only_updated: bool) -> Result<(),
     Ok(())
 }
 
+fn grab_this_mod_deps(mod_info: &ModInfo, dep_list: Vec<Install>) -> String {
+    dep_list.iter()
+        .filter(|i| mod_info.dependencies.as_ref().map_or(false, |deps| deps.contains_key(&i.mod_id)))
+        .map(|i| i.mod_id.clone()).collect::<Vec<ModID>>().join(",")
+}
 
-fn setup_table_from_sync(sync_data: &Result<RustiqueSyncJson, RustiqueError>) -> Table {
+
+fn setup_table_from_sync(sync_data: Option<&HashMap<ModID, ModSyncInfo>>) -> Table {
     let mut table = Table::new();
 
     table
@@ -140,7 +136,7 @@ fn setup_table_from_sync(sync_data: &Result<RustiqueSyncJson, RustiqueError>) ->
         .add_cell(Cell::new("ModID").add_attribute(Attribute::Bold).fg(Color::Blue))
         .add_cell(Cell::new("Version").add_attribute(Attribute::Bold).fg(Color::Blue));
 
-    if sync_data.is_ok() {
+    if sync_data.is_some() {
         header.add_cell(Cell::new("Latest Version").add_attribute(Attribute::Bold).fg(Color::Blue));
     }
 

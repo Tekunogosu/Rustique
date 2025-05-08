@@ -1,14 +1,6 @@
-use std::io;
-use std::io::Write;
-use tracing::{Event, Level, Subscriber};
-use tracing::field::Field;
-use tracing_subscriber::{fmt, EnvFilter};
-use tracing_subscriber::field::Visit;
-use tracing_subscriber::fmt::{FmtContext, FormatEvent, FormatFields};
-use tracing_subscriber::fmt::format::Writer;
 use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::registry::LookupSpan;
 use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::{fmt, EnvFilter};
 
 
 pub enum VerboseLevel {

@@ -1,12 +1,11 @@
+use crate::aliases::{ModID, ModName};
+use crate::api::api_structs::{Mod, Mods};
+use crate::rustique_errors::RustiqueError;
+use colored::Colorize;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Duration;
-use colored::Colorize;
 use tracing::{error, info};
-use crate::aliases::{ModID, ModName};
-use crate::api::api_structs::{Mod, ModInfo, Mods};
-use crate::install_manager::{Install, Installed};
-use crate::rustique_errors::RustiqueError;
 
 const API_BASE_URL: &str = "https://mods.vintagestory.at/api";
 const RUSTIQUE_USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"), "  (github: Tekunogosu/Rustique)");
@@ -16,6 +15,7 @@ pub struct ApiClient {
     agent: Arc<reqwest::Client>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct ModApiFetch {
     pub mod_id: ModID,
@@ -35,7 +35,7 @@ impl ApiClient {
         }
     }
 
-    pub fn with_agent(agent: Arc<reqwest::Client>) -> Self {
+    pub fn _with_agent(agent: Arc<reqwest::Client>) -> Self {
         Self { agent }
     }
 
@@ -129,7 +129,7 @@ impl ApiClient {
         Ok(results)
     }
 
-    pub async fn fetch_game_versions(&self) -> Result<HashSet<String>, RustiqueError> {
+    pub async fn _fetch_game_versions(&self) -> Result<HashSet<String>, RustiqueError> {
         Ok(HashSet::new())
     }
 

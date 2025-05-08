@@ -1,17 +1,15 @@
-use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
-use tracing::{error, info};
-use url::Url;
-use rayon::prelude::*;
 use crate::aliases::{DownloadURL, ModID, ModName, ModVersion};
 use crate::api::api_structs::Mod;
-use crate::api::client::{ApiClient, ModApiFetch};
-use crate::api::download::{download_requested_mods};
+use crate::api::client::{ApiClient};
+use crate::api::download::download_requested_mods;
 use crate::commands::sync::ModSyncInfo;
 use crate::rustique_errors::RustiqueError;
 use crate::utils::extract_zip_metadata;
 use crate::version_management::parse_latest_version;
+use rayon::prelude::*;
+use std::collections::{HashMap};
+use std::path::PathBuf;
+use tracing::{error, info};
 
 // install & update both will obtain the info needed to fill this struct
 #[derive(Debug, Clone)]

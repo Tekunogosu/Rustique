@@ -1,5 +1,3 @@
-#![allow(unused_imports, dead_code)]
-
 mod utils;
 mod api;
 mod cli_commands;
@@ -12,33 +10,25 @@ mod logging;
 mod config_manager;
 mod install_manager;
 
-use std::collections::HashSet;
-use std::error::Error;
-use std::fs::File;
-use std::io;
-use std::io::Read;
-use std::path::PathBuf;
-use std::process::exit;
-use std::time::Instant;
-use clap::{Args, Command, CommandFactory, FromArgMatches, Parser, Subcommand};
-use clap_complete::{generate, Shell};
-use colored::Colorize;
-use tracing::field::debug;
-use tracing::{debug, error, info, trace, warn, Level};
-use tracing_subscriber::{fmt, prelude::*, EnvFilter};
-use crate::aliases::ModID;
 use crate::cli_commands::{Cli, Commands, ShellType};
-use crate::commands::list::list_installed;
-use crate::utils::{elapsed_footer, get_expanded_path, RustiqueOptions};
-use commands::sync::sync;
-use commands::update::update_mods;
 use crate::commands::arg_structs::modpack_args::ModpackCommands;
 use crate::commands::config::parse_config_args;
 use crate::commands::install::{install_cmd, install_missing_deps};
+use crate::commands::list::list_installed;
 use crate::commands::sync::mod_id_sync;
 use crate::config_manager::{get_config, init_config};
 use crate::logging::{init_logging, VerboseLevel};
-
+use crate::utils::{elapsed_footer, get_expanded_path, RustiqueOptions};
+use clap::{CommandFactory, Parser};
+use clap_complete::{generate, Shell};
+use colored::Colorize;
+use commands::sync::sync;
+use commands::update::update_mods;
+use std::io;
+use std::path::PathBuf;
+use std::process::exit;
+use std::time::Instant;
+use tracing::{debug, error, info, warn};
 
 
 fn main() {
@@ -131,8 +121,8 @@ async fn async_main() {
             if args.missing_dependencies {
                 match install_missing_deps(&mod_dir, args.mod_ids.clone()).await {
                     Ok(_) => {
-
-                    }
+                        handle_sync_call(&mod_dir).await
+                    },
                     Err(e) => {
                         error!("{}", e)
                     }
@@ -143,7 +133,7 @@ async fn async_main() {
             if args.mod_ids.len() > 0 {
                 match install_cmd(&mod_dir, args.mod_ids.clone(), args.missing_dependencies).await {
                     Ok(_) => {
-
+                        handle_sync_call(&mod_dir).await;
                     }
                     Err(e) => {
                         error!("{}", e)

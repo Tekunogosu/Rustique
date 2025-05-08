@@ -1,12 +1,8 @@
+use crate::commands::arg_structs::config_args::{BoolArgs, CommonArgs, ConfigCommand, ConfigSubCommand};
+use crate::config_manager::{get_config};
+use crate::utils::{command_output, display_table, get_expanded_path, CellData};
 use std::path::PathBuf;
-use tracing::{error, warn};
-use colored::Colorize;
-use comfy_table::{Attribute, Color};
-use crate::api::api_structs::StringOrBool::Bool;
-use crate::commands::arg_structs::config_args::{CommonArgs, ConfigCommand, ConfigSubCommand, BoolArgs, SetArgs, ShowArgs};
-use crate::commands::arg_structs::list_args::ListArgs;
-use crate::config_manager::{get_config, Config};
-use crate::utils::{command_output, display_table, get_expanded_path, notice, CellData};
+use tracing::{warn};
 
 pub fn parse_config_args(config_cmd: &ConfigCommand) {
     match &config_cmd.subcommand {
@@ -106,11 +102,11 @@ fn set(args: &CommonArgs) {
 //         CommonArgs { backup_mods_dir: String, ..} => {}
 // }
 
-fn list() {
+fn _list() {
     println!("listing all configurations...");
 }
 
-fn del(args: &BoolArgs) {
+fn _del(args: &BoolArgs) {
     if args.backup_mods_dir {
 
     }

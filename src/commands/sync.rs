@@ -1,30 +1,22 @@
+use crate::aliases::{ModFileName, ModID, ModName, ModVersion};
+use crate::api::api_structs::{Mod};
+use crate::api::client::{ApiClient};
+use crate::config_manager::{get_config, CONFIG_DEFAULT_DIR};
+use crate::rustique_errors::RustiqueError;
+use crate::utils::{elapsed_footer, extract_all_mods_metadata, get_current_time, get_expanded_path, notice, timestamp_older_than};
+use crate::version_management::{parse_latest_version, parse_version};
+use colored::{Colorize};
+use comfy_table::Attribute;
+use serde::{Deserialize, Serialize};
+use serde_json::to_string_pretty;
 use std::collections::HashMap;
-use std::error::Error;
 use std::fs::File;
-use std::hash::Hash;
-use std::io::{Read, Write};
+use std::io::{Read};
 use std::path::PathBuf;
 use std::process::exit;
-use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant, SystemTime};
-use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc};
-use colored::{Color, Colorize};
-use comfy_table::Attribute;
-use rayon::prelude::*;
-use serde_json::to_string_pretty;
-use semver::{Version};
+use std::time::{Instant};
 use tokio::io::AsyncWriteExt;
 use tracing::{debug, error, info, warn};
-use crate::aliases::{ModFileName, ModID, ModIDInt, ModName, ModVersion};
-use crate::rustique_errors::RustiqueError;
-use crate::api::api_structs::{Mod, ModInfo, Releases};
-use crate::utils::{RustiqueOptions, get_current_time, extract_all_mods_metadata, elapsed_footer, notice, is_today, get_expanded_path, timestamp_older_than};
-use crate::api::client::{ApiClient, ModApiFetch};
-use crate::config_manager::{get_config, CONFIG_DEFAULT_DIR};
-use crate::install_manager::Install;
-use crate::rustique_errors::RustiqueError::UrlParseError;
-use crate::version_management::{parse_latest_version, parse_version};
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct RustiqueSyncJson {
@@ -76,6 +68,7 @@ pub struct ModSyncInfo {
 }
 
 
+#[allow(unused)]
 pub async fn handle_sync_call(mod_dir: &PathBuf) {
     match sync(mod_dir).await {
         Ok(_) => {}

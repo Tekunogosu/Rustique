@@ -1,15 +1,13 @@
-use std::sync::{RwLock, OnceLock};
+use crate::rustique_errors::RustiqueError;
+use crate::utils::{get_expanded_path, RustiqueOptions};
+use colored::Colorize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::PathBuf;
-use std::process::exit;
-use colored::Colorize;
-use dirs::home_dir;
-use serde::{Deserialize, Serialize};
-use crate::rustique_errors::RustiqueError;
-use crate::utils::{get_expanded_path, RustiqueOptions};
+use std::sync::{OnceLock, RwLock};
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct Config {

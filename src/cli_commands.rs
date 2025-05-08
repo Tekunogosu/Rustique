@@ -1,5 +1,3 @@
-use clap::{Args, Parser, Subcommand, ArgGroup, ValueEnum};
-use clap_complete::Shell;
 use crate::commands::arg_structs::changelog_args::ChangeLogArgs;
 use crate::commands::arg_structs::config_args::ConfigCommand;
 use crate::commands::arg_structs::info_args::ModInfoArgs;
@@ -9,6 +7,8 @@ use crate::commands::arg_structs::modpack_args::ModpackCommands;
 use crate::commands::arg_structs::search_args::SearchMods;
 use crate::commands::arg_structs::sync_args::SyncArgs;
 use crate::commands::arg_structs::update_args::UpdateArgs;
+use clap::{Args, Parser, Subcommand, ValueEnum};
+use clap_complete::Shell;
 
 #[derive(Parser)]
 #[command(name = "Rustique")]
