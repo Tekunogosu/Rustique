@@ -1,3 +1,4 @@
+
 # Rustique
 
 Rustique is a command-line interface, written in Rust, for managing and updating Vintage Story mods and their dependencies. 
@@ -6,6 +7,12 @@ _...and its fast af!_
 
 
 Rustique is currently in Alpha, meaning many features are not present. In its current state, it can easily manage all your mods and their dependencies without issue. 
+
+### Want to support Rustique? 
+
+Any donation is appreciated! Bug reports and pull requests are also good! There is no obligation here, so support only if you can or want!
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/O5O13Y88O)
 
 ## How Rustique Works
 
@@ -58,12 +65,12 @@ The commands are as follows:
 | `./Rustique update primitivesurvival goblinears`  | Update multiple packages by name. These are case-insensitive                                                                                                                                                              |
 | `./Rustique install alchemy`                      | Install a new mod and its dependencies. Case-insensitive                                                                                                                                                                  |
 | `./Rustique install --missing-dependencies`       | Install all missing dependencies found in your mod directory                                                                                                                                                              |
+| `./Rustique config set --mod-dir /path/to/mods`   | Set your default mod directory if non-default. This way you don't have to pass -m each time you use Rustique                                                                                                              |
 
 
 ## Missing Features
 * Version pinning.
 * `Search` for new mods.
-* **_(High Priority)_** Configuration settings: Like setting your default mod directory so you don't have to pass -m each time you run, if your mods are installed in a non-default location.
 * `Modpack` creation, installation, and management. There is no default mod pack capability for VS, so Rustique will fill that void. 
 * `Changelog` for mods.
 * `List` table view configuration.

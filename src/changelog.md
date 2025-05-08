@@ -1,4 +1,6 @@
 
+# Version 0.2.2-alpha
+* Fixed version parsing error for versions that show up as NULL from the api. This was just a display issue, didn't actually affect the usage of Rustique
 
 # Version 0.2.1-alpha
 * Using -v now shows the correct mod directory that Rustique is looking at

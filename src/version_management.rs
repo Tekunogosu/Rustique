@@ -1,7 +1,8 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
-use semver::Version;
+use semver::{Error, Version};
 use serde::{Deserialize, Serialize};
+use tracing::info;
 use crate::aliases::{DownloadURL, ModID, ModVersion};
 use crate::api::api_structs::{GameVersion, Releases};
 use crate::rustique_errors::RustiqueError;
@@ -28,15 +29,13 @@ pub struct LatestVersionFound {
 pub fn parse_latest_version(releases: &[Releases]) -> (ModVersion, DownloadURL) {
     let mut errors :Vec<RustiqueError> = Vec::new();
 
+    // TODO: Review for version pinning, the error needs to be handled better for that
     let result = releases.iter()
         .filter_map(|release| {
             let version_str = match &release.mod_version {
                 Some(v) => v.clone(),
                 None => {
-                    errors.push(RustiqueError::VersionError {
-                        context: format!("{:?} {}", release.filename, ""),
-                        source: Version::parse("invalid.version").unwrap_err()
-                    });
+                    errors.push(RustiqueError::SimpleError(format!("Unable to parse version NULL for {:?}", release.filename)));
                     return None;
                 }
             };
@@ -58,7 +57,7 @@ pub fn parse_latest_version(releases: &[Releases]) -> (ModVersion, DownloadURL) 
 
     if !errors.is_empty() {
         for error in errors.iter() {
-            println!("{}", error.to_string());
+            info!("{}", error.to_string());
         }
     }
 
