@@ -59,7 +59,7 @@ impl From<std::io::Error> for RustiqueError {
     fn from(e: std::io::Error) -> Self {
         RustiqueError::IoError {
             source: e,
-            context: "".to_string(),
+            context: String::new()
         }
     }
 }

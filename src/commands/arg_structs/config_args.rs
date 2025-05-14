@@ -1,9 +1,11 @@
 use clap::{ArgGroup, Args, Subcommand};
+use crate::commands::arg_structs::config_table_args::TableArgs;
 
 #[derive(Args)]
 pub struct ConfigCommand {
     #[command(subcommand)]
     pub(crate) subcommand: ConfigSubCommand,
+   
 }
 
 #[derive(Subcommand)]
@@ -18,9 +20,10 @@ pub enum ConfigSubCommand {
     /// Deletes an option, returning it to the default value.
     /// You can set multiple values at the same time: Rustique config del -mzB
     Del(BoolArgs),
+    
+    /// Configure the tables for `List` and `Search` 
+    Table(TableArgs),
 }
-
-
 
 
 #[derive(Args, Debug, Clone)]
@@ -88,6 +91,7 @@ pub struct SetArgs {
 }
 
 #[derive(Args, Debug)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct BoolArgs {
 
     #[arg(short, long)]

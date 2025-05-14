@@ -48,7 +48,7 @@ pub async fn install_cmd(mod_dir: &PathBuf, mods_requested: Vec<ModID>, force: b
 
     info!("Mods requested {:?}", mods_requested);
 
-    let mods_processed = install_manager(&mod_dir, mods_requested.clone(), installed_mods).await?;
+    let mods_processed = install_manager(mod_dir, mods_requested.clone(), installed_mods).await?;
 
     display_installation_results(mods_processed);
 
@@ -62,13 +62,13 @@ pub async fn install_missing_deps(mod_dir: &PathBuf, mods_requested: Vec<ModID>)
     // retrieve all dependencies
     // send missing ones to install_manager()
 
-    let installed_mods = extract_all_mods_metadata(mod_dir)?;
+    let installed_mods = extract_all_mods_metadata(mod_dir).await?;
     let sync_data = get_sync_data(mod_dir).await?.rustique_sync.clone();
 
 
     // if there are reports of slowness is this section .values().par_bridge()...flat_map_iter() could be used to speed it up
     // this is prob not an issue even with a lot of mods as the data is all in memory at this point
-    let mut missing_deps: Vec<Install> = gather_missing_dependencies(&installed_mods, &mods_requested, &sync_data)?;
+    let mut missing_deps: Vec<Install> = gather_missing_dependencies(&installed_mods, &mods_requested, &sync_data);
 
     let client = ApiClient::new();
 
@@ -81,7 +81,7 @@ pub async fn install_missing_deps(mod_dir: &PathBuf, mods_requested: Vec<ModID>)
     for mod_info in &mut missing_deps {
         if let Some(data) = result.get(&mod_info.mod_id) {
             mod_info.mod_name = data.mod_json.name.clone().unwrap_or_default();
-            let (version, download_url) = parse_latest_version(&*data.mod_json.releases);
+            let (version, download_url) = parse_latest_version(&data.mod_json.releases);
             mod_info.download_url = download_url;
             mod_info.version_to_install = version;
         }
@@ -89,7 +89,7 @@ pub async fn install_missing_deps(mod_dir: &PathBuf, mods_requested: Vec<ModID>)
 
     debug!("deps: {:?}", missing_deps);
 
-    let mods_processed = install_manager(&mod_dir, missing_deps, sync_data).await?;
+    let mods_processed = install_manager(mod_dir, missing_deps, sync_data).await?;
 
 
     info!("mods_processed {:#?}", mods_processed);

@@ -20,7 +20,7 @@ use std::{fs};
 use comfy_table::ContentArrangement::Dynamic;
 use tracing::{debug, error, info};
 use zip::ZipArchive;
-use crate::config_structs::CellColor;
+use crate::config_structs::{CellAttr, CellColor};
 
 #[derive(Clone, Debug)]
 pub struct RustiqueOptions {
@@ -55,9 +55,9 @@ impl RustiqueOptions {
         panic!("Unable to determine user's home directory, do you have permissions??");
     }
 
-    pub fn get_mod_path(&self) -> PathBuf {
+    pub async fn get_mod_path(&self) -> PathBuf {
         let default_path = Self::default().mod_dir.unwrap();
-        let config = get_config().read().unwrap();
+        let config = get_config().read().await;
         let config_mod_dir = PathBuf::from(&config.mod_dir);
 
         if default_path.as_path().eq(get_expanded_path(config_mod_dir.clone()).as_path()) {
@@ -73,9 +73,9 @@ pub fn get_current_time() -> String {
     datetime.format("%Y-%m-%d %H:%M").to_string()
 }
 
-pub fn timestamp_older_than(num_hours: i64, timestamp: &String) -> bool {
+pub fn timestamp_older_than(num_hours: i64, timestamp: &str) -> bool {
 
-    let naive_dt = NaiveDateTime::parse_from_str(&timestamp, "%Y-%m-%d %H:%M").map_err(|e| {error!("{}", e)}).unwrap_or_default();
+    let naive_dt = NaiveDateTime::parse_from_str(timestamp, "%Y-%m-%d %H:%M").map_err(|e| {error!("{}", e)}).unwrap_or_default();
     let now = Utc::now().naive_utc();
     let duration = now.signed_duration_since(naive_dt);
 
@@ -88,22 +88,26 @@ pub fn timestamp_older_than(num_hours: i64, timestamp: &String) -> bool {
 pub fn get_expanded_path(dir: PathBuf) -> PathBuf {
     if dir.starts_with("~/") {
         if let Some(home) = home_dir() {
-            return PathBuf::new().join(home).join(dir.strip_prefix("~/").unwrap());
+            let d = match dir.strip_prefix("~") {
+                Ok(d) => d,
+                Err(e) => panic!("{}", e),
+            };
+            return PathBuf::new().join(home).join(d);
         }
     }
 
     dir
 }
 
-pub fn extract_zip_metadata(entry: PathBuf) -> Result<ModInfo, RustiqueError> {
+pub fn extract_zip_metadata(entry: &PathBuf) -> Result<ModInfo, RustiqueError> {
     // This function doesn't need async as it's doing synchronous file operations
     if entry.is_dir() {
         return Err(RustiqueError::ModNotZipped(entry.display().to_string()));
     }
-    if entry.extension().map_or(false, |x| x.to_ascii_lowercase() != "zip") {
+    if entry.extension().is_some_and(|x| !x.eq_ignore_ascii_case("zip")) {
         return Err(RustiqueError::SimpleError(format!("Skipping non-zip file: {}", entry.display())));
     }
-    let file = File::open(&entry)
+    let file = File::open(entry)
         .map_err(|e| RustiqueError::IoError {
             context: format!("Failed to open {:?}: {}", entry.file_name(), e),
             source: e,
@@ -132,7 +136,7 @@ pub fn extract_zip_metadata(entry: PathBuf) -> Result<ModInfo, RustiqueError> {
     Ok(mod_info)
 }
 
-pub fn extract_all_mods_metadata(mod_dir: &PathBuf) -> Result<HashMap<ModFileName, ModInfo>, RustiqueError> {
+pub async fn extract_all_mods_metadata(mod_dir: &PathBuf) -> Result<HashMap<ModFileName, ModInfo>, RustiqueError> {
 
     let dir = fs::read_dir(mod_dir)
         .map_err(|e| RustiqueError::IoError {
@@ -142,22 +146,16 @@ pub fn extract_all_mods_metadata(mod_dir: &PathBuf) -> Result<HashMap<ModFileNam
     let entries_vec: Vec<DirEntry> = dir.filter_map(|e| e.ok()).collect();
     // let mods = Arc::new(Mutex::new(HashMap::<ModFileName, ModInfo>::new()));
 
-    let notify_of_unzipped_mods = match get_config().read() {
-        Ok(config) => config.notify_of_unzipped_mods,
-        Err(e) => {
-            error!("Config error: {}", e.to_string());
-            false
-        }
-    };
-
+    let config = get_config().read().await;
+    
     // Use Rayon for CPU-bound tasks (zip processing is CPU-bound)
     let results:Vec<(ModFileName, ModInfo)> = entries_vec.par_iter()
         .filter_map(|entry| {
             let filename = entry.file_name().to_string_lossy().to_string();
-            match extract_zip_metadata(entry.path()) {
+            match extract_zip_metadata(&entry.path()) {
                 Ok(mod_info) => Some((filename, mod_info)),
                 Err(e) => {
-                     if matches!(e, RustiqueError::ModNotZipped(_)) && notify_of_unzipped_mods {
+                     if matches!(e, RustiqueError::ModNotZipped(_)) && config.notify_of_unzipped_mods {
                         println!("{}",e.to_string().yellow());
                     } else {
                         debug!("{}", e.to_string().yellow());
@@ -185,7 +183,7 @@ pub fn verify_zip_file(file_path: &PathBuf) -> Result<(), RustiqueError> {
         })?;
 
     // Check that the archive contains at least one file
-    if archive.len() == 0 {
+    if archive.is_empty() {
         return Err(RustiqueError::SimpleError(format!("Zip file is empty: {}", file_path.to_string_lossy())));
     }
 
@@ -214,7 +212,7 @@ pub fn sanitize_string(string: &str) -> String {
         .split_whitespace()
         .fold(String::new(), |mut acc, word| {
             if !acc.is_empty() {
-                acc.push_str(" ");
+                acc.push(' ');
             }
             acc.push_str(word);
             acc
@@ -238,7 +236,7 @@ pub fn elapsed_footer(start_time: Instant, operation: &str) {
 
     table.add_row(row);
 
-    println!("{}", table);
+    println!("{table}");
 }
 
 pub fn notice(message: &str, fg_color: Option<Color>, attributes: Vec<Attribute>) {
@@ -266,7 +264,7 @@ pub fn notice(message: &str, fg_color: Option<Color>, attributes: Vec<Attribute>
     row.add_cell(cell);
 
     table.add_row(row);
-    println!("{}", table);
+    println!("{table}");
 }
 
 pub struct RustiqueMessage {
@@ -285,9 +283,9 @@ pub fn rustique_message(rustique_message: RustiqueMessage) {
         if header_data.is_some() {
             let header_data = header_data.unwrap_or_default();
             let mut h_cell = Cell::new(header_data.text);
-            if header_data.attributes.len() > 0 {
+            if !header_data.attributes.is_empty() {
                 for attribute in &header_data.attributes {
-                    h_cell = h_cell.add_attribute(attribute.clone());
+                    h_cell = h_cell.add_attribute(*attribute);
                 }
             }
             h_cell = h_cell.fg(header_data.color.unwrap_or(Color::Green))
@@ -303,9 +301,9 @@ pub fn rustique_message(rustique_message: RustiqueMessage) {
     let rows: Vec<Row> = rustique_message.message.iter().map(|message_data|{
         let mut cell = Cell::from(message_data.text.clone());
 
-        if message_data.attributes.len() > 0 {
+        if !message_data.attributes.is_empty() {
             for attr in &message_data.attributes {
-                cell = cell.add_attribute(attr.clone());
+                cell = cell.add_attribute(*attr);
             }
         }
         cell = cell.fg(message_data.color.unwrap_or(Color::Yellow))
@@ -318,25 +316,15 @@ pub fn rustique_message(rustique_message: RustiqueMessage) {
 
     table.add_rows(rows);
 
-    println!("{}", table);
+    println!("{table}");
 }
 
+#[derive(Default)]
 pub struct CellData {
     pub(crate) text: String,
     pub(crate) attributes: Vec<Attribute>,
     pub(crate) color: Option<Color>,
     pub(crate) alignment: Option<CellAlignment>
-}
-
-impl Default for CellData {
-    fn default() -> Self {
-        Self {
-            text: "".to_string(),
-            attributes: vec![],
-            color: None,
-            alignment: None,
-        }
-    }
 }
 
 impl CellData {
@@ -366,7 +354,7 @@ pub fn display_table(row_data: Vec<(CellData, CellData)>, table_style: Option<&s
 
     table.add_rows(rows);
 
-    println!("{}", table);
+    println!("{table}");
 }
 
 pub fn construct_cell(dt: CellData) -> Cell {
@@ -397,52 +385,52 @@ pub fn display_installation_results(mods_processed: Vec<Installed>) {
     let mut f_table = s_table.clone();
 
 
-    if successful.len() > 0 {
+    if !successful.is_empty() {
         let mut sh_row = Row::new();
         sh_row.add_cell(Cell::new("Successfully Installed".to_string()).fg(Color::Green).add_attribute(Attribute::Bold).set_alignment(CellAlignment::Center));
         s_table.set_header(sh_row);
 
         fill_table_body(&mut successful, &mut s_table, Color::Green, Color::Magenta);
 
-        println!("{}", s_table);
+        println!("{s_table}");
 
         display_table(vec![command_output("Total mods Installed".to_string(), successful.len().to_string())], None);
     }
 
-    if failed.len() > 0 {
+    if !failed.is_empty() {
         let mut fh_row = Row::new();
         fh_row.add_cell(Cell::new("Failed to Install".to_string()).fg(Color::Red).add_attribute(Attribute::Bold).set_alignment(CellAlignment::Center));
         f_table.set_header(fh_row);
 
         fill_table_body(&mut failed, &mut f_table, Color::Red, Color::Magenta);
 
-        println!("{}", f_table);
+        println!("{f_table}");
     }
 }
 
-fn fill_table_body(list: &mut Vec<Installed>, table: &mut Table, l_color: Color, r_color: Color) {
+fn fill_table_body(list: &mut [Installed], table: &mut Table, l_color: Color, r_color: Color) {
     list.sort_by(|a,b| a.mod_name.cmp(&b.mod_name));
 
-    list.iter().for_each(|m|{
+    for m in list {
         let mut row = Row::new();
         row.add_cell(Cell::new(m.mod_name.clone()).fg(l_color).set_alignment(CellAlignment::Left));
         row.add_cell(Cell::new(m.install_version.clone()).fg(r_color).set_alignment(CellAlignment::Left));
         table.add_row(row);
-    });
+    }
 }
 
 
 // Helper function to get just installed dependencies by passing empty vec and hashmap to the parts that filter out dependencies
-pub fn gather_dependencies(installed_mods: &HashMap<ModFileName, ModInfo>) -> Result<Vec<Install>, RustiqueError> {
-    gather_missing_dependencies(installed_mods, &vec![], &HashMap::new())
+pub fn gather_dependencies(installed_mods: &HashMap<ModFileName, ModInfo>) -> Vec<Install> {
+    gather_missing_dependencies(installed_mods, &[], &HashMap::new())
 }
 
-pub fn gather_missing_dependencies(installed_mods: &HashMap<ModFileName, ModInfo>, mods_requested: &Vec<ModID>, sync_data: &HashMap<ModID, ModSyncInfo>) -> Result<Vec<Install>, RustiqueError> {
+pub fn gather_missing_dependencies(installed_mods: &HashMap<ModFileName, ModInfo>, mods_requested: &[ModID], sync_data: &HashMap<ModID, ModSyncInfo>) -> Vec<Install> {
     // if there are reports of slowness is this section .values().par_bridge()...flat_map_iter() could be used to speed it up
     // this is prob not an issue even with a lot of mods as the data is all in memory at this point
     let id_vec: Vec<ModID> = sync_data.keys().cloned().collect();
 
-    Ok(installed_mods
+    installed_mods
         .values()
         .filter(|mod_info| mods_requested.is_empty() || mods_requested.contains(&mod_info.mod_id))
         .flat_map(|mod_info| {
@@ -452,12 +440,12 @@ pub fn gather_missing_dependencies(installed_mods: &HashMap<ModFileName, ModInfo
                         if !mod_id.contains("game")
                             && !mod_id.contains("survival")
                             && !mod_id.contains("creative")
-                            && !id_vec.contains(&mod_id) {
+                            && !id_vec.contains(mod_id) {
                             Some(Install {
                                 mod_id: mod_id.clone(),
-                                mod_name: "".to_string(),
+                                mod_name: String::new(),
                                 version_to_install: version.clone(),
-                                download_url: "".to_string(),
+                                download_url: String::new(),
                                 current_file_path: None,
                             })
                         } else {
@@ -465,27 +453,20 @@ pub fn gather_missing_dependencies(installed_mods: &HashMap<ModFileName, ModInfo
                         }).collect::<Vec<_>>()
                 ).unwrap_or_default()
                 .into_iter()
-        }).collect())
+        }).collect()
 }
 
-pub fn prep_cell(text: &str, color: Option<CellColor>, attribute: Option<String>, delimiter: Option<char>) -> Cell {
+pub fn prep_cell(text: &str, color: Option<CellColor>, attribute: Option<CellAttr>, delimiter: Option<char>) -> Cell {
     let mut cell = Cell::from(text);
 
     if color.is_some() {
-        info!("Trying to set cell color: {}", color.clone().unwrap());
         cell = cell.fg(Color::from(color.unwrap_or(CellColor::Reset)));
     }
 
     // TODO: Add actual attribute type so any Comfy_table attribute can be used
     // For now we limit the usable attributes
     if attribute.is_some() {
-        let attr: Attribute = match attribute.unwrap().as_str() {
-            "bold" => Attribute::Bold,
-            "dim" => Attribute::Dim,
-            "italic" => Attribute::Italic,
-            _ => Attribute::NoHidden
-        };
-        cell = cell.add_attribute(attr);
+        cell = cell.add_attribute(Attribute::from(attribute.unwrap_or(CellAttr::NoHidden)));
     }
 
     if delimiter.is_some() {

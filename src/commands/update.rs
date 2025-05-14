@@ -12,9 +12,11 @@ use std::process::exit;
 use std::time::Instant;
 use tracing::{debug, info};
 
-pub async fn update_mods(mod_dir: &PathBuf, update_mod_ids: Vec<ModID>, _keep_old_files: bool) -> Result<(), RustiqueError> {
+
+#[allow(clippy::map_entry)]
+pub async fn update_mods(mod_dir: &PathBuf, update_mod_ids: Vec<ModID>, keep_old_files: bool) -> Result<(), RustiqueError> {
     let start_time = Instant::now();
-    let config = get_config().read().unwrap();
+    let config = get_config().read().await;
     let sync_data = parse_json_file::<RustiqueSyncJson>(&PathBuf::from(mod_dir).join(SYNC_FILE_NAME));
 
     if sync_data.is_ok() {
@@ -23,8 +25,11 @@ pub async fn update_mods(mod_dir: &PathBuf, update_mod_ids: Vec<ModID>, _keep_ol
         let mut mods_to_check_update: HashMap<ModID, ModSyncInfo> = HashMap::new();
         let mut updates_exist = false;
 
-        if !update_mod_ids.is_empty() {
-            update_mod_ids.iter().for_each(|typed_mod_id| {
+        if update_mod_ids.is_empty() {
+            mods_to_check_update.clone_from(&sync_data.rustique_sync);
+            updates_exist = true;
+        } else {
+            for typed_mod_id in &update_mod_ids {
                 let mod_sync_data = &sync_data.rustique_sync;
                 // user typed in a valid typed_mod_id so violet is happy now
                 let typed_mod_id = typed_mod_id.to_lowercase();
@@ -34,10 +39,7 @@ pub async fn update_mods(mod_dir: &PathBuf, update_mod_ids: Vec<ModID>, _keep_ol
                 } else {
                     println!("{} is not a valid mod_id!", &typed_mod_id.red());
                 }
-            });
-        } else {
-            mods_to_check_update = sync_data.rustique_sync.clone();
-            updates_exist = true;
+            }
         }
 
         if !updates_exist {
@@ -69,14 +71,14 @@ pub async fn update_mods(mod_dir: &PathBuf, update_mod_ids: Vec<ModID>, _keep_ol
 
         let mods_processed: Vec<Installed> = install_manager(mod_dir, final_mod_update_list.clone(), all_installed_mods).await?;
 
-        if !_keep_old_files {
+        if !keep_old_files {
             for mod_processed in &mods_processed {
                 if let (Some(old), Some(new) )= (&mod_processed.old_file_path, &mod_processed.installed_file_path) {
-                    if old != new {
-                        info!("Cleaning up mod file for {}", old.display());
-                        delete_file(&old).await?;
-                    } else {
+                    if old == new {
                         info!("Old file and new file have the same name, **NOT DELETING**");
+                    } else {
+                        info!("Cleaning up mod file for {}", old.display());
+                        delete_file(old).await?;
                     }
                 }
             }

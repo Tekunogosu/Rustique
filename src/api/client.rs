@@ -2,7 +2,7 @@ use crate::aliases::{ModID, ModName};
 use crate::api::api_structs::{Mod, Mods};
 use crate::rustique_errors::RustiqueError;
 use owo_colors::OwoColorize;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::{error, info};
@@ -39,12 +39,12 @@ impl ApiClient {
         Self { agent }
     }
 
-    fn uri(&self, endpoint: &str) -> String {
-        format!("{}/{}", API_BASE_URL, endpoint)
+    fn uri(endpoint: &str) -> String {
+        format!("{API_BASE_URL}/{endpoint}")
     }
 
     pub async fn fetch_all_mods(&self) -> Result<Mods, RustiqueError> {
-        let response = self.agent.get(&self.uri("mods"))
+        let response = self.agent.get(Self::uri("mods"))
             .send()
             .await
             .map_err(|e| RustiqueError::ApiError {
@@ -63,26 +63,26 @@ impl ApiClient {
     pub async fn fetch_mod(&self, mod_id: &str) -> Result<Mod, RustiqueError> {
         if mod_id.is_empty() {
             error!("Mod id is empty {}", mod_id);
-            return Err(RustiqueError::MalformedModInfoJson(format!("{}","The mod id received was empty.. unable to download whatever mod this is.")));
+            return Err(RustiqueError::MalformedModInfoJson("The mod id received was empty.. unable to download whatever mod this is.".to_string()));
         }
 
         info!("{} {}", "Fetching mod: ".bright_green(), mod_id.bright_yellow());
 
-        let response = self.agent.get(&self.uri(&format!("mod/{}", mod_id)))
+        let response = self.agent.get(Self::uri(&format!("mod/{mod_id}")))
             .send()
             .await
             .map_err(|e| RustiqueError::ApiError {
-                context: format!("fetch_mod (get) [{}]", mod_id),
+                context: format!("fetch_mod (get) [{mod_id}]"),
                 source: e
             })?;
 
 
-        Ok(response.json::<Mod>()
+        response.json::<Mod>()
             .await
             .map_err(|e| RustiqueError::ApiError {
-                context: format!("fetch_mod (json) [{}] - They may have provided the wrong mod_id or the api is not responding. Retry, if it fails you will need to manually update the mod.", mod_id),
+                context: format!("fetch_mod (json) [{mod_id}] - They may have provided the wrong mod_id or the api is not responding. Retry, if it fails you will need to manually update the mod."),
                 source: e
-            })?)
+            })
     }
 
     pub async fn fetch_mods_parallel(&self, mod_list: Vec<ModID>) -> Result<HashMap<ModID, Mod>, RustiqueError> {
@@ -99,7 +99,6 @@ impl ApiClient {
             }
 
             let client = self.clone();
-            let mod_id = mod_id;
 
             // Spawn an async task for this mod
             let task = tokio::spawn(async move {
@@ -108,7 +107,7 @@ impl ApiClient {
                         Some((mod_id, the_mod))
                     },
                     Err(e) => {
-                        eprintln!("{} {}", mod_id, e);
+                        eprintln!("{mod_id} {e}");
                         None
                     }
                 }
@@ -129,16 +128,16 @@ impl ApiClient {
         Ok(results)
     }
 
-    pub async fn _fetch_game_versions(&self) -> Result<HashSet<String>, RustiqueError> {
-        Ok(HashSet::new())
-    }
+    // pub fn _fetch_game_versions(&self) -> Result<HashSet<String>, RustiqueError> {
+    //     Ok(HashSet::new())
+    // }
 
     pub async fn get_request(&self, mod_uri: &str) -> Result<reqwest::Response, RustiqueError> {
         self.agent.get(mod_uri)
             .send()
             .await
             .map_err(|e| RustiqueError::ApiError {
-                context: format!("get_request: {}", mod_uri),
+                context: format!("get_request: {mod_uri}"),
                 source: e,
             })
     }

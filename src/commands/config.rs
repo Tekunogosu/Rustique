@@ -3,24 +3,28 @@ use crate::config_manager::{get_config, Config};
 use crate::utils::{command_output, display_table, get_expanded_path, CellData};
 use std::path::PathBuf;
 use tracing::{warn};
+use crate::commands::config_table::config_table;
 
-pub fn parse_config_args(config_cmd: &ConfigCommand) {
+pub async fn parse_config_args(config_cmd: &ConfigCommand) {
     match &config_cmd.subcommand {
         ConfigSubCommand::Set(args) => {
-            set(&args.common)
+            set(&args.common).await;
         },
         ConfigSubCommand::List => {
-            list()
+            list().await;
         },
         ConfigSubCommand::Del(args) => {
-            del(args)
+            del(args).await;
         },
+        ConfigSubCommand::Table(args) => {
+            config_table(args).await;
+        }
     }
 }
 
-fn set(args: &CommonArgs) {
+async fn set(args: &CommonArgs) {
 
-    let mut config = get_config().write().unwrap();
+    let mut config = get_config().write().await;
 
     let mut display_vec: Vec<(CellData, CellData)> = Vec::new();
 
@@ -90,40 +94,40 @@ fn set(args: &CommonArgs) {
 }
 
 
-fn del(args: &BoolArgs) {
+async fn del(args: &BoolArgs) {
 
-    let mut config = get_config().write().unwrap();
+    let mut config = get_config().write().await;
     let defaults = Config::default();
     let mut display_vec: Vec<(CellData, CellData)> = Vec::new();
 
 
     if args.backup_mods_dir {
-        config.backup_mods_dir = defaults.backup_mods_dir.clone();
+        config.backup_mods_dir.clone_from(&defaults.backup_mods_dir);
         display_vec.push(command_output("config.backup_mods_dir".to_string(), defaults.backup_mods_dir.to_string()));
     }
 
     if args.zip_mod_dirs {
-        config.zip_mod_files = defaults.zip_mod_files.clone();
+        config.zip_mod_files = defaults.zip_mod_files;
         display_vec.push(command_output("config.zip_mod_files".to_string(), defaults.zip_mod_files.to_string()));
     }
 
     if args.backup_mods {
-        config.backup_mods = defaults.backup_mods.clone();
+        config.backup_mods = defaults.backup_mods;
         display_vec.push(command_output("config.backup_mods".to_string(), defaults.backup_mods.to_string()));
     }
 
     if args.pin_game_version {
-        config.pinned_game_version = defaults.pinned_game_version.clone();
+        config.pinned_game_version.clone_from(&defaults.pinned_game_version);
         display_vec.push(command_output("config.pinned_game_version".to_string(), defaults.pinned_game_version.to_string()));
     }
 
     if args.mod_dir {
-        config.mod_dir = defaults.mod_dir.clone();
+        config.mod_dir.clone_from(&defaults.mod_dir);
         display_vec.push(command_output("config.mod_dir".to_string(), defaults.mod_dir.to_string()));
     }
 
     if args.notify_of_unzipped_mods {
-        config.notify_of_unzipped_mods = defaults.notify_of_unzipped_mods.clone();
+        config.notify_of_unzipped_mods = defaults.notify_of_unzipped_mods;
         display_vec.push(command_output("config.notify_of_unzipped_mods".to_string(), config.notify_of_unzipped_mods.to_string()));
     }
 
@@ -132,17 +136,17 @@ fn del(args: &BoolArgs) {
     config.save(None).unwrap();
 }
 
-fn list() {
-    let config = get_config().read().unwrap();
-    let mut display_vec: Vec<(CellData, CellData)> = Vec::new();
-
-    display_vec.push(command_output("config.mod_dir".to_string(), config.mod_dir.to_string()));
-    display_vec.push(command_output("config.backup_mods".to_string(), config.backup_mods.to_string()));
-    display_vec.push(command_output("config.backup_mods_dir".to_string(), config.backup_mods_dir.to_string()));
-    display_vec.push(command_output("config.zip_mod_files".to_string(), config.zip_mod_files.to_string()));
-    display_vec.push(command_output("config.show_execution_time".to_string(), config.show_execution_time.to_string()));
-    display_vec.push(command_output("config.notify_of_unzipped_mods".to_string(), config.notify_of_unzipped_mods.to_string()));
-    display_vec.push(command_output("config.pinned_game_version".to_string(), config.pinned_game_version.to_string()));
-
+async fn list() {
+    let config = get_config().read().await;
+    let display_vec: Vec<(CellData, CellData)> = vec![
+        command_output("config.mod_dir".to_string(), config.mod_dir.to_string()),
+        command_output("config.backup_mods".to_string(), config.backup_mods.to_string()),
+        command_output("config.backup_mods_dir".to_string(), config.backup_mods_dir.to_string()),
+        command_output("config.zip_mod_files".to_string(), config.zip_mod_files.to_string()),
+        command_output("config.show_execution_time".to_string(), config.show_execution_time.to_string()),
+        command_output("config.notify_of_unzipped_mods".to_string(), config.notify_of_unzipped_mods.to_string()),
+        command_output("config.pinned_game_version".to_string(), config.pinned_game_version.to_string()),
+    ];
+    
     display_table(display_vec, None);
 }

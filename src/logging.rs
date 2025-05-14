@@ -9,7 +9,7 @@ pub enum VerboseLevel {
     Default,
 }
 
-pub fn init_logging(verbose: VerboseLevel) {
+pub fn init_logging(verbose: &VerboseLevel) {
     let filter = match verbose {
         VerboseLevel::Verbose => {
             EnvFilter::new("info,Rustique=info,ureq=info,tokio=info,tokio_runtime=info")
@@ -17,7 +17,7 @@ pub fn init_logging(verbose: VerboseLevel) {
         VerboseLevel::Debug => {
             EnvFilter::new("info,Rustique=debug,ureq=info,tokio=info,tokio_runtime=info")
         }
-        _ => {
+        VerboseLevel::Default => {
             EnvFilter::new("info,Rustique=warn,ureq=warn,tokio=debug,tokio_runtime=debug")
         }
     };

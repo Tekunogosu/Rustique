@@ -31,16 +31,13 @@ pub fn parse_latest_version(releases: &[Releases]) -> (ModVersion, DownloadURL) 
     // TODO: Review for version pinning, the error needs to be handled better for that
     let result = releases.iter()
         .filter_map(|release| {
-            let version_str = match &release.mod_version {
-                Some(v) => v.clone(),
-                None => {
-                    errors.push(RustiqueError::SimpleError(format!("Unable to parse version NULL for {:?}", release.filename)));
-                    return None;
-                }
+            let Some(version_str) = &release.mod_version else {
+                errors.push(RustiqueError::SimpleError(format!("Unable to parse version NULL for {:?}", release.filename)));
+                return None;
             };
 
             // only clone when passing to parse_version if required
-            match parse_version(version_str.clone()) {
+            match parse_version(&version_str.clone()) {
                 Ok(version) => Some((version, release.main_file.clone())),
                 Err(e) => {
                     errors.push(e);
@@ -55,7 +52,7 @@ pub fn parse_latest_version(releases: &[Releases]) -> (ModVersion, DownloadURL) 
         });
 
     if !errors.is_empty() {
-        for error in errors.iter() {
+        for error in &errors {
             info!("{}", error.to_string());
         }
     }
@@ -68,6 +65,6 @@ pub fn parse_latest_version(releases: &[Releases]) -> (ModVersion, DownloadURL) 
     }
 }
 
-pub fn parse_version(mod_version: String) -> Result<Version, RustiqueError> {
-    lenient_semver::parse(&mod_version).map_err(|e| RustiqueError::SimpleError(e.to_string()))
+pub fn parse_version(mod_version: &str) -> Result<Version, RustiqueError> {
+    lenient_semver::parse(mod_version).map_err(|e| RustiqueError::SimpleError(e.to_string()))
 }

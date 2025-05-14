@@ -7,4 +7,7 @@ impl StrLowerExt for String {
         let needle_lower = needle.to_lowercase();
         self.to_lowercase().contains(&needle_lower)
     }
+    
 }
+
+

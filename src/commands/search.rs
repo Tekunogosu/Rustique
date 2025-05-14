@@ -4,21 +4,18 @@ use std::str::FromStr;
 use clap::ValueEnum;
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
 use comfy_table::presets::UTF8_FULL_CONDENSED;
-use comfy_table::{Attribute, Cell, Color, ContentArrangement, Row, Table};
-use owo_colors::OwoColorize;
-use tracing::{debug, info};
+use comfy_table::{Cell, ContentArrangement, Row, Table};
+use tracing::debug;
 use crate::api::api_structs::{ModApi, ModsSearchFile};
 use crate::commands::arg_structs::search_args::SearchArgs;
-use crate::commands::search::SortBy::Released;
 use crate::commands::sync::{parse_json_file, SEARCH_FILE_NAME};
 use crate::config_manager::{get_config, Config};
-use crate::config_structs::{CellColor, SearchColumn};
+use crate::config_structs::SearchColumn;
 use crate::rustique_errors::RustiqueError;
 use crate::traits::option_ext::OptionExt;
 use crate::traits::search_traits::{Searchable, SortValue, Sortable};
 use crate::traits::vec_ext::VecStringExt;
 use crate::utils::prep_cell;
-//TODO: implement searching by date or time?? Maybe
 
 impl Searchable for ModApi {
     fn matches_text(&self, query: &str) -> bool {
@@ -33,15 +30,16 @@ impl Searchable for ModApi {
         || self.tags.contains(&query)
     }
 
+    #[allow(clippy::match_wildcard_for_single_variants)]
     fn matches_field(&self, field: &Field, value: &str) -> bool {
         match field {
-            Field::Name     => self.name.matches_contains(&value),
-            Field::Summary  => self.summary.matches_contains(&value),
-            Field::Author   => self.author.matches_contains(&value),
-            Field::ModType  => self.mod_type.matches_contains(&value),
-            Field::Side     => self.side.matches_contains(&value),
+            Field::Name     => self.name.matches_contains(value),
+            Field::Summary  => self.summary.matches_contains(value),
+            Field::Author   => self.author.matches_contains(value),
+            Field::ModType  => self.mod_type.matches_contains(value),
+            Field::Side     => self.side.matches_contains(value),
             Field::ModIdStr => self.mod_id_strs.contains(&value.to_string()),
-            Field::UrlAlias => self.url_alias.matches_contains(&value),
+            Field::UrlAlias => self.url_alias.matches_contains(value),
             _ => false
         }
     }
@@ -83,12 +81,12 @@ pub enum SortBy {
 impl Sortable for ModApi {
       fn get_sort_by(&self, field: &SortBy) -> SortValue {
         match *field {
-            SortBy::Name        => SortValue::Number(self.mod_id as i64),
-            SortBy::AssetId     => SortValue::Number(self.asset_id as i64),
-            SortBy::Downloads   => SortValue::Number(self.downloads as i64),
-            SortBy::Follows     => SortValue::Number(self.follows as i64),
-            SortBy::Author      => SortValue::Number(self.trending_points as i64),
-            SortBy::Released    => SortValue::Number(self.comments as i64),
+            SortBy::Name        => SortValue::Number(i64::from(self.mod_id)),
+            SortBy::AssetId     => SortValue::Number(i64::from(self.asset_id)),
+            SortBy::Downloads   => SortValue::Number(i64::from(self.downloads)),
+            SortBy::Follows     => SortValue::Number(i64::from(self.follows)),
+            SortBy::Author      => SortValue::Number(i64::from(self.trending_points)),
+            SortBy::Released    => SortValue::Number(i64::from(self.comments)),
             SortBy::Comments    => SortValue::Text(self.name.clone().unwrap_or_default()),
             SortBy::Trending    => SortValue::Text(self.author.clone().unwrap_or_default()),
             SortBy::ModId       => SortValue::Date(self.last_released.clone().unwrap_or_default()),
@@ -119,7 +117,7 @@ impl FromStr for SortOrder {
         match s.to_lowercase().as_str() {
             "asc" | "ascending" => Ok(SortOrder::Asc),
             "desc" | "descending" => Ok(SortOrder::Desc),
-            _ => Err(format!("Invalid sort order: {}", s))
+            _ => Err(format!("Invalid sort order: {s}"))
         }
     }
 }
@@ -132,6 +130,7 @@ pub struct SearchQuery {
     pub sort_order: SortOrder,
 }
 
+#[allow(unused)]
 impl SearchQuery {
     pub fn new() -> Self {
         SearchQuery {
@@ -183,7 +182,7 @@ impl SearchQuery {
 
                 self.criteria.iter().all(|criterion| match criterion {
                     SearchCriteria::Text(query) => mod_item.matches_text(query),
-                    SearchCriteria::Field{field, value} => mod_item.matches_field(&field, &value),
+                    SearchCriteria::Field{field, value} => mod_item.matches_field(field, value),
                     SearchCriteria::Id(id) => mod_item.matches_id(*id),
                     SearchCriteria::Tag(tag) => mod_item.matches_tag(tag),
                 })
@@ -191,8 +190,8 @@ impl SearchQuery {
 
         if let Some(sort_field) = &self.sort_by {
             results.sort_by(|a, b| {
-                let a_val = a.get_sort_by(&sort_field);
-                let b_val = b.get_sort_by(&sort_field);
+                let a_val = a.get_sort_by(sort_field);
+                let b_val = b.get_sort_by(sort_field);
 
                 let order = a_val.partial_cmp(&b_val).unwrap_or(Ordering::Equal);
 
@@ -200,7 +199,7 @@ impl SearchQuery {
                     SortOrder::Asc => order,
                     SortOrder::Desc => order.reverse(),
                 }
-            })
+            });
         }
 
         results
@@ -212,7 +211,7 @@ pub fn parse_search_file() -> Result<ModsSearchFile, RustiqueError> {
     parse_json_file::<ModsSearchFile>(&file_path)
 }
 
-pub fn search(args: &SearchArgs) -> Result<(), RustiqueError> {
+pub async fn search(args: &SearchArgs) -> Result<(), RustiqueError> {
 
     let search_file = parse_search_file()?;
 
@@ -246,14 +245,14 @@ pub fn search(args: &SearchArgs) -> Result<(), RustiqueError> {
 
     debug!("search result: {:#?}", res);
 
-    show_search_table(res);
+    show_search_table(res).await;
 
 
     Ok(())
 }
 
-pub fn show_search_table(results: Vec<ModApi>) {
-    let config = get_config().read().unwrap();
+pub async fn show_search_table(results: Vec<ModApi>) {
+    let config = get_config().read().await;
 
     let search_config = &config.table.search;
     let search_headers = &search_config.headers;
@@ -268,7 +267,7 @@ pub fn show_search_table(results: Vec<ModApi>) {
         let color = v.color.clone();
         let attr = v.attribute.clone();
 
-        let col_txt = match SearchColumn::from_str(k) {
+        let col_txt = match <SearchColumn as FromStr>::from_str(k) {
             Ok(SearchColumn::Name) => "Name",
             Ok(SearchColumn::Author) => "Author",
             Ok(SearchColumn::ModId) => "ModID",
@@ -297,7 +296,7 @@ pub fn show_search_table(results: Vec<ModApi>) {
             let color = v.color.clone();
             let attr = v.attribute.clone();
 
-            let col_txt = match SearchColumn::from_str(k) {
+            let col_txt = match <SearchColumn as FromStr>::from_str(k) {
                 Ok(SearchColumn::Name)      => m.name.clone().unwrap_or_default(),
                 Ok(SearchColumn::ModId)     => m.mod_id.to_string(),
                 Ok(SearchColumn::AssetId)   => m.asset_id.to_string(),
@@ -315,7 +314,7 @@ pub fn show_search_table(results: Vec<ModApi>) {
                 Ok(SearchColumn::LastReleased) => m.last_released.clone().unwrap_or_default(),
                 _ => String::new()
             };
-            prep_cell(&*col_txt, color, attr, None)
+            prep_cell(&col_txt, color, attr, None)
 
         }).collect();
 
@@ -324,6 +323,6 @@ pub fn show_search_table(results: Vec<ModApi>) {
 
     table.add_rows(b_rows);
 
-    println!("{}", table);
+    println!("{table}");
 }
 

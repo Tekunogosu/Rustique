@@ -1,6 +1,4 @@
 use clap::{Args};
-use clap::ArgGroup;
-use comfy_table::Color;
 use crate::commands::search::{Field, SortBy, SortOrder};
 use crate::config_structs::CellColor;
 

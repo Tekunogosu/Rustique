@@ -23,7 +23,7 @@ impl Display for StringOrInt {
             StringOrInt::String(s) => s.clone(),
             StringOrInt::Int(i) => i.to_string(),
         };
-        write!(f, "{}", str)
+        write!(f, "{str}")
     }
 }
 
@@ -46,7 +46,7 @@ impl Display for StringOrBool {
             StringOrBool::String(s) => s.clone(),
             StringOrBool::Bool(b) => b.to_string(),
         };
-        write!(f, "{}", str)
+        write!(f, "{str}")
     }
 }
 
@@ -112,6 +112,7 @@ impl ModsSearchFile {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Default)]
 pub struct ModApi {
     #[serde(default, rename = "modid", alias = "mod_id")]
     pub mod_id: u32,
@@ -138,28 +139,6 @@ pub struct ModApi {
     pub last_released: Option<String>
 }
 
-impl Default for ModApi {
-    fn default() -> Self {
-        Self {
-            mod_id: 0,
-            asset_id: 0,
-            downloads: 0,
-            follows: 0,
-            trending_points: 0,
-            comments: 0,
-            name: None,
-            summary: None,
-            mod_id_strs: vec![],
-            author: None,
-            url_alias: None,
-            side: None,
-            mod_type: None,
-            logo: None,
-            tags: vec![],
-            last_released: None,
-        }
-    }
-}
 
 // Used for endpoint /api/mod/mod_id
 #[derive(Serialize, Deserialize, Debug)]
@@ -191,13 +170,13 @@ pub struct ApiModJson {
     pub logo_filename: Option<String>,
 
     #[serde(default, rename = "logofile", skip_serializing_if = "Option::is_none")]
-    pub logo_file: Option<Option<String>>,
+    pub logo_file: Option<String>,
 
     #[serde(default, rename = "logofiledb",skip_serializing_if = "Option::is_none")]
-    pub logo_file_db: Option<Option<String>>,
+    pub logo_file_db: Option<String>,
 
     #[serde(default, rename = "homepageurl", skip_serializing_if = "Option::is_none")]
-    pub home_page_url: Option<Option<String>>,
+    pub home_page_url: Option<String>,
 
     #[serde(default, rename = "sourcecodeurl", skip_serializing_if = "Option::is_none")]
     pub source_code_url: Option<String>,

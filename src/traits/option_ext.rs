@@ -14,8 +14,7 @@ impl OptionExt for Option<String> {
     type Inner = String;
     fn matches_contains(&self, query: &str) -> bool {
         self.as_ref()
-            .map(|s| s.lower_contains(&query.to_lowercase()))
-            .unwrap_or(false)
+            .is_some_and(|s| s.lower_contains(&query.to_lowercase()))
     }
 
     fn as_str_option(&self) -> Option<&str> {

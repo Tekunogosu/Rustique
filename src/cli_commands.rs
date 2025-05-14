@@ -70,19 +70,6 @@ pub enum Commands {
         #[clap(subcommand)]
         command: ModpackCommands,
     },
-
-    #[cfg(feature = "dev")]
-    #[command(about = "Bulk downloader")]
-    BulkDownloader(BulkDownloadCommands),
-
-    #[cfg(feature = "dev")]
-    #[command(about = "test command")]
-    TestCommand(TestArg),
-
-    #[cfg(feature = "dev")]
-    #[command(about = "load mods from a text file")]
-    LoadMods(LoadModsArgs)
-
 }
 
 #[derive(Args, Debug)]

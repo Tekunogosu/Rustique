@@ -1,3 +1,7 @@
+#![warn(clippy::perf, clippy::pedantic)]
+#![warn(clippy::manual_string_new)]
+#![allow(clippy::redundant_closure_for_method_calls, clippy::struct_field_names, clippy::doc_markdown)]
+
 mod utils;
 mod api;
 mod cli_commands;
@@ -54,13 +58,13 @@ async fn async_main() {
     } else {
         VerboseLevel::Default
     };
-    init_logging(verbosity);
+    init_logging(&verbosity);
     // setup the config global
     // ideally this *could* be setup by the user on where they want the config to be loaded from,
     // but for now it will always be in .config/rustique
     // this will need to be modified to work with windows using %appdata%
     match init_config(None) {
-        Ok(_) => {},
+        Ok(()) => {},
         Err(e) => {
             debug!("{}", e.to_string().red().bold());
         }
@@ -69,10 +73,10 @@ async fn async_main() {
         debug!("Verbose logging enabled");
     }
     let mod_opts: RustiqueOptions = RustiqueOptions::default();
-    let mut mod_dir = mod_opts.get_mod_path();
+    let mut mod_dir = mod_opts.get_mod_path().await;
     // the mods_dir from the cli takes priority from all other means, including the config file
     if cli.mods_dir.is_some() {
-        mod_dir = get_expanded_path(PathBuf::from(cli.mods_dir.clone().unwrap()));
+        mod_dir = get_expanded_path(PathBuf::from(cli.mods_dir.clone().unwrap_or(String::new())));
     }
 
     info!("Operating on mods dir: {:?}", mod_dir);
@@ -95,24 +99,17 @@ async fn async_main() {
         }
         Commands::List(args) => {
             match new_list(&mod_dir, args.updates).await {
-                Ok(_) => {
+                Ok(()) => {
 
                 },
                 Err(e) => {
                     error!("{}", e.to_string().red().bold());
                 }
             }
-
-            // match list_installed(&mod_dir, args.updates).await {
-            //     Ok(_) => {}
-            //     Err(e) => {
-            //         error!("{}", e.to_string().red().bold());
-            //     }
-            // }
         }
         Commands::Update(args) => {
             match update_mods(&mod_dir, args.mod_ids.clone(), args.keep_old_files).await {
-                Ok(_) => {
+                Ok(()) => {
                     handle_sync_call(&mod_dir).await;
                 }
                 Err(e) => {
@@ -126,28 +123,26 @@ async fn async_main() {
         }
         Commands::Install(args) => {
             let start_time = Instant::now();
-            let config = get_config().read().unwrap();
-
+            let config = get_config().read().await;
 
             if args.missing_dependencies {
                 match install_missing_deps(&mod_dir, args.mod_ids.clone()).await {
-                    Ok(_) => {
-                        handle_sync_call(&mod_dir).await
+                    Ok(()) => {
+                        handle_sync_call(&mod_dir).await;
                     },
                     Err(e) => {
-                        error!("{}", e)
+                        error!("{}", e);
                     }
                 }
             }
 
-
-            if args.mod_ids.len() > 0 {
+            if !args.mod_ids.is_empty() {
                 match install_cmd(&mod_dir, args.mod_ids.clone(), args.missing_dependencies).await {
-                    Ok(_) => {
+                    Ok(()) => {
                         handle_sync_call(&mod_dir).await;
                     }
                     Err(e) => {
-                        error!("{}", e)
+                        error!("{}", e);
                     }
                 }
             }
@@ -157,24 +152,20 @@ async fn async_main() {
             }
         }
         Commands::Config(config_cmd) => {
-            parse_config_args(config_cmd);
+            parse_config_args(config_cmd).await;
         }
-        Commands::Misc{ gen_auto_complete } => {
-            if let Some(shell) = gen_auto_complete {
+        Commands::Misc{ gen_auto_complete: Some(shell) } => {
                 generate_completion(shell.clone());
-            }
         }
         Commands::Info(args) => {
             info!("displaying stuff about the mod {:?}", args.mod_id);
         }
-        Commands::Search(args) => {
-            match search(args) {
-                Ok(_) => {}
-                Err(e) => {
-                    error!("{}", e.to_string().red().bold());
-                }
+        Commands::Search(args) => match search(args).await {
+            Ok(()) => {}
+            Err(e) => {
+                error!("{}", e.to_string().red().bold());
             }
-        }
+        },
         Commands::ModPack{command} => {
             match command {
                 ModpackCommands::Create(args) => {
@@ -185,56 +176,14 @@ async fn async_main() {
                 }
             }
         }
-        // #[cfg(feature = "dev")]
-        // Commands::BulkDownloader(args) => {
-        //     match bulk_download(&mod_dir, args.num_to_download).await {
-        //         Ok(_) => {
-        //             info!("All mods downloaded.. hopefully..");
-        //         }
-        //         Err(e) => {
-        //             error!("{}", e.to_string());
-        //         }
-        //     }
-        // }
-        #[cfg(feature = "dev")]
-        Commands::TestCommand(args) => {
-            {
-                let mut config = get_config().write().unwrap();
-                config.pinned_game_version = args.version_to_pin.to_string();
-                config.save(None).unwrap();
-            }
-            {
-                let config = get_config().read().unwrap();
-                info!("{:?}", config);
-            }
-        }
-        // #[cfg(feature = "dev")]
-        // Commands::LoadMods(args) => {
-        //     let file_path = get_expanded_path(PathBuf::from(args.filename.clone()));
-        //
-        //     // Use tokio's async file reading
-        //     match tokio::fs::read_to_string(file_path).await {
-        //         Ok(contents) => {
-        //             let list: Vec<String> = contents.split('\n').map(|s| s.to_string()).collect();
-        //             info!("{:?}", list);
-        //             info!("COUNT: {}", list.len());
-        //             let set: HashSet<String> = HashSet::from_iter(list);
-        //             if let Err(e) = install_mods(&mod_dir, InstallOrUpdate::Install(set)).await {
-        //                 error!("Failed to install mods: {}", e);
-        //             }
-        //         },
-        //         Err(e) => {
-        //             error!("Failed to read file: {}", e);
-        //         }
-        //     }
-        // }
+       Commands::Misc{ .. }=> {},
     }
 }
 
 // Update this function to be async
 async fn handle_sync_call(mod_dir: &PathBuf) {
     match sync(mod_dir).await {
-        Ok(_) => {},
+        Ok(()) => {},
         Err(e) => {
             error!("{}", e.to_string().red().bold());
             exit(1);

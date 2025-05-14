@@ -57,20 +57,10 @@ pub struct ModSyncInfo {
     pub latest_download_url: String,
 }
 
-// impl Default for ModIDSync {
-//     fn default() -> Self {
-//         Self {
-//             all_mods: Default::default(),
-//             last_sync: "".to_string(),
-//         }
-//     }
-// }
-
-
 #[allow(unused)]
 pub async fn handle_sync_call(mod_dir: &PathBuf) {
     match sync(mod_dir).await {
-        Ok(_) => {}
+        Ok(()) => {}
         Err(e) => {
            error!("{}", e.to_string());
             exit(1);
@@ -93,19 +83,19 @@ where
     let filename = file_path.file_name().unwrap().to_string_lossy().to_string();
 
     let mut file = File::open(file_path).map_err(|e| RustiqueError::IoError {
-        context: format!("Unable to open {}", filename),
+        context: format!("Unable to open {filename}"),
         source: e,
     })?;
 
     let mut file_contents = String::new();
     file.read_to_string(&mut file_contents).map_err(|e| RustiqueError::IoError {
-        context: format!("Failure while reading from file {}", filename),
+        context: format!("Failure while reading from file {filename}"),
         source: e
     })?;
 
     let json = serde_json5::from_str::<T>(&file_contents)
         .map_err(|e| RustiqueError::JsonError {
-            context: format!("Json parsing Error for {}", filename),
+            context: format!("Json parsing Error for {filename}"),
             source: e
         })?;
 
@@ -119,7 +109,7 @@ pub async fn get_sync_data(mod_dir: &PathBuf) -> Result<RustiqueSyncJson, Rustiq
         sync(mod_dir).await?;
     }
 
-    Ok(parse_json_file::<RustiqueSyncJson>(&fp)?)
+    parse_json_file::<RustiqueSyncJson>(&fp)
 }
 
 
@@ -127,7 +117,7 @@ pub async fn get_sync_data(mod_dir: &PathBuf) -> Result<RustiqueSyncJson, Rustiq
 pub async fn sync(mod_dir: &PathBuf) -> Result<(), RustiqueError> {
 
     let start_time = Instant::now();
-    let config = get_config().read().unwrap();
+    let config = get_config().read().await;
     mods_search_sync(false).await?;
 
     notice("Syncing...", Option::from(comfy_table::Color::Yellow), vec![Attribute::Bold]);
@@ -170,13 +160,13 @@ pub async fn sync(mod_dir: &PathBuf) -> Result<(), RustiqueError> {
         mods_search_sync(true).await?;
     }
 
-    let installed_mods = extract_all_mods_metadata(mod_dir)?;
+    let installed_mods = extract_all_mods_metadata(mod_dir).await?;
 
     // clean sync data first so latest info takes priority
     sync_data.rustique_sync.clear();
 
-    installed_mods.iter().for_each(|(mod_filename, mod_info)| {
-        let version = if let Ok(parsed_version) = parse_version(mod_info.version.clone().unwrap_or_default()) {
+    for (mod_filename, mod_info) in &installed_mods {
+        let version = if let Ok(parsed_version) = parse_version(&mod_info.version.clone().unwrap_or_default()) {
             parsed_version.to_string()
         } else {
             warn!("Could not parse version: {} for {}\n\rThis mod may not update correctly..", mod_info.version.clone().unwrap_or_default(), mod_filename.to_string());
@@ -203,7 +193,7 @@ pub async fn sync(mod_dir: &PathBuf) -> Result<(), RustiqueError> {
                 // no mods match
                 warn!("Unable to determine the mod_id for {} - {}.\n\r\t Their modinfo.json is malformed and no information provided allowed Rustique to determine it.\n\r\t \
                              Please contact the author to correct their modinfo.json file", mod_info.name.bright_red().bold(), mod_filename.bright_red().bold());
-                "".to_string()
+                String::new()
             } else {
                 res[0].mod_id.to_string()
             }
@@ -222,7 +212,7 @@ pub async fn sync(mod_dir: &PathBuf) -> Result<(), RustiqueError> {
                 latest_download_url: String::new(),
                 latest_known_version: String::new(),
             });
-    });
+    }
 
     let im = installed_mods.keys().clone().collect::<Vec<&String>>();
     info!("Installed mods: {:?}", im);
@@ -234,15 +224,15 @@ pub async fn sync(mod_dir: &PathBuf) -> Result<(), RustiqueError> {
             sync_data.rustique_sync.keys().cloned().collect()
         ).await?;
 
-    result.iter().for_each(|(mod_id, mod_info): (&ModID, &Mod)| {
+    for (mod_id, mod_info) in &result {
         let (mod_version, download_url) = parse_latest_version(&mod_info.mod_json.releases);
 
         sync_data
             .rustique_sync
             .entry(mod_id.clone())
             .and_modify(|sync_info| {
-                sync_info.latest_known_version = mod_version.clone();
-                sync_info.latest_download_url = download_url.clone();
+                sync_info.latest_known_version.clone_from(&mod_version);
+                sync_info.latest_download_url.clone_from(&download_url);
             })
             .or_insert_with(|| ModSyncInfo {
                 latest_known_version: mod_version,
@@ -251,7 +241,7 @@ pub async fn sync(mod_dir: &PathBuf) -> Result<(), RustiqueError> {
                 file_name: "None".to_string(),
                 installed_version: "None".to_string(),
             });
-    });
+    }
 
     // Write the sync data to file
     let data = sync_data;
@@ -276,7 +266,7 @@ pub async fn sync(mod_dir: &PathBuf) -> Result<(), RustiqueError> {
 
 pub async fn mods_search_sync(force: bool) -> Result<ModsSearchFile, RustiqueError> {
 
-    let config = get_config().read().unwrap();
+    let config = get_config().read().await;
     let start_time = Instant::now();
 
     let config_dir = Config::get_path();
@@ -340,7 +330,7 @@ pub fn prettify<T>(data: T, command_type: &str) -> Result<String, RustiqueError>
     T: serde::Serialize {
 
     to_string_pretty(&data).map_err(|e| RustiqueError::JsonError {
-            context: format!("Failure while making the {} json pretty", command_type),
-            source: serde_json5::Error::from(std::io::Error::new(std::io::ErrorKind::Other, e)),
+            context: format!("Failure while making the {command_type} json pretty"),
+            source: serde_json5::Error::from(std::io::Error::other(e)),
         })
 }

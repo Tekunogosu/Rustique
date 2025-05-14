@@ -3,13 +3,13 @@ use crate::install_manager::{Install, Installed};
 use crate::rustique_errors::RustiqueError;
 use crate::utils::{verify_zip_file};
 use owo_colors::OwoColorize;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tokio::io::AsyncWriteExt;
 use tracing::{debug,info, warn};
 use url::Url;
+use crate::rustique_errors::RustiqueError::UrlParseError;
 
-
-pub async fn download_requested_mods(mod_dir: &PathBuf, mods_requested: &mut Vec<Install>, api_client: &ApiClient) -> Result<Vec<Installed>, RustiqueError> {
+pub async fn download_requested_mods(mod_dir: &Path, mods_requested: &mut Vec<Install>, api_client: &ApiClient) -> Result<Vec<Installed>, RustiqueError> {
 
     let mut tasks = Vec::with_capacity(mods_requested.len());
 
@@ -21,7 +21,7 @@ pub async fn download_requested_mods(mod_dir: &PathBuf, mods_requested: &mut Vec
         info!("{} {}", "Attempting to download mod".bright_green(), mod_request.mod_id.to_string().bright_yellow());
 
         let client = api_client.clone();
-        let dir = mod_dir.clone();
+        let dir = mod_dir.to_path_buf();
 
         let task = tokio::spawn(async move {
 
@@ -66,16 +66,16 @@ pub async fn download_requested_mods(mod_dir: &PathBuf, mods_requested: &mut Vec
 
 
 
-async fn download_mod(mod_dir: &PathBuf, download_url: String, api_client: &ApiClient) -> Result<PathBuf, RustiqueError> {
-    let filename_from_api = &download_url.split('=').last().unwrap();
+async fn download_mod(mod_dir: &Path, download_url: String, api_client: &ApiClient) -> Result<PathBuf, RustiqueError> {
+    let filename_from_api = &download_url.split('=').next_back().unwrap();
 
     // Replace any spaces in the downloaded file with _ . This makes it easier to process later
-    let filename_fix = mod_dir.clone().join(filename_from_api).to_string_lossy().replace(" ", "_");
+    let filename_fix = mod_dir.to_path_buf().join(filename_from_api).to_string_lossy().replace(' ', "_");
     let requested_file_path = PathBuf::from(filename_fix);
 
 
     let url = Url::parse(download_url.as_str())
-        .map_err(|e| RustiqueError::UrlParseError(e))?;
+        .map_err(UrlParseError)?;
     debug!("Trying to download url: {}", url.clone().to_string());
 
     // Retry logic - attempt download up to 3 times
@@ -118,7 +118,7 @@ async fn download_mod(mod_dir: &PathBuf, download_url: String, api_client: &ApiC
 }
 
 async fn download_and_verify(url: &Url, file_path: &PathBuf, api_client: &ApiClient) -> Result<PathBuf, RustiqueError> {
-    let response = api_client.get_request(&url.to_string()).await
+    let response = api_client.get_request(url.as_ref()).await
         .map_err(|e| RustiqueError::SimpleError(e.to_string()))?;
 
     // Check if we got a successful response
@@ -131,8 +131,8 @@ async fn download_and_verify(url: &Url, file_path: &PathBuf, api_client: &ApiCli
     // Get the full response body
     let bytes = response.bytes().await
         .map_err(|e| RustiqueError::IoError {
-            context: format!("Failure reading response from API {}", url.to_string()),
-            source: std::io::Error::new(std::io::ErrorKind::Other, e),
+            context: format!("Failure reading response from API {url}"),
+            source: std::io::Error::other(e),
         })?;
 
     // Verify we have actual content

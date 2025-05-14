@@ -7,3 +7,4 @@ pub mod install_args;
 pub mod modpack_args;
 pub mod info_args;
 pub mod sync_args;
+pub mod config_table_args;

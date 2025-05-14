@@ -8,7 +8,7 @@ use crate::utils::extract_zip_metadata;
 use crate::version_management::parse_latest_version;
 use rayon::prelude::*;
 use std::collections::{HashMap};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tracing::{error, info};
 use crate::traits::string_ext::StrLowerExt;
 
@@ -40,14 +40,14 @@ pub struct Installed {
 
 
 pub async fn install_manager(
-    mod_dir: &PathBuf,
+    mod_dir: &Path,
     mods_requested: Vec<Install>,
     installed_mods: HashMap<ModID, ModSyncInfo>) -> Result<Vec<Installed>, RustiqueError> {
 
     // this is the combined list of all mods installed, once download is completed, now mods will be
     // added here
     let mut total_mods_seen: HashMap<ModID, Installed> = HashMap::with_capacity(installed_mods.len());
-    installed_mods.iter().for_each(|(mod_id, mod_sync_info)| {
+    for (mod_id, mod_sync_info) in &installed_mods {
         // this is what is already on the system
         // the version doesn't really matter, we just need to know modid and filepath, which the
         // info from sync would provide that
@@ -59,7 +59,7 @@ pub async fn install_manager(
             old_file_path: Some(mod_dir.join(mod_sync_info.file_name.clone())),
             install_version: mod_sync_info.installed_version.clone(),
         });
-    });
+    }
 
 
     // info!("total_mods_seen: {:#?}", total_mods_seen);
@@ -82,7 +82,7 @@ pub async fn install_manager(
 
         // this function will consume each value out of the mods_requested so we can rebuild it
         // after the dependencies check
-       let recently_installed: Vec<Installed> =  match download_requested_mods(&mod_dir, &mut mods_requested, &client).await {
+       let recently_installed: Vec<Installed> =  match download_requested_mods(mod_dir, &mut mods_requested, &client).await {
             Ok(processed_mods) => {
                 info!("Successfully installed mods: {:?}", processed_mods);
                 // update recently installed so we can get the dependencies
@@ -106,10 +106,11 @@ pub async fn install_manager(
         // extract the modinfojson from recently_installed and gather the dependencies.
         // subtract any dependency which already resides in total seen mods
 
+        #[allow(clippy::redundant_closure)]
         let mut needed_dependencies: Vec<Install> = recently_installed.par_iter()
             .filter_map(|installed_mod| {
                 let path = installed_mod.installed_file_path.clone()?;
-                match extract_zip_metadata(path) {
+                match extract_zip_metadata(&path) {
                     Ok(mod_info) =>  {
                         Some(mod_info.dependencies
                             .unwrap_or_default()
@@ -130,16 +131,16 @@ pub async fn install_manager(
             .flat_map_iter(|deps| deps.into_iter())
             .map(|(mod_id, mod_version)| Install {
                 mod_id,
-                mod_name: "".to_string(),
+                mod_name: String::new(),
                 version_to_install: mod_version,
-                download_url: "".to_string(),
+                download_url: String::new(),
                 current_file_path: None,
             }).collect();
 
         passes += 1;
         info!("pass: {}, needed_dependencies : {:?}", passes, needed_dependencies);
 
-        if needed_dependencies.len() == 0 {
+        if needed_dependencies.is_empty() {
             break;
         }
 
@@ -156,10 +157,10 @@ pub async fn install_manager(
 
         //TODO: double check needed values are present
         for mod_to_install in &mut needed_dependencies {
-            if let Some(_mod) =  result.get(mod_to_install.mod_id.as_str()) {
-                mod_to_install.mod_name = _mod.mod_json.name.clone().unwrap_or_default();
+            if let Some(res_mod) =  result.get(mod_to_install.mod_id.as_str()) {
+                mod_to_install.mod_name = res_mod.mod_json.name.clone().unwrap_or_default();
                 // TODO: version pinning here??
-                let (mod_version, download_url) = parse_latest_version(&_mod.mod_json.releases);
+                let (mod_version, download_url) = parse_latest_version(&res_mod.mod_json.releases);
                 mod_to_install.download_url = download_url;
                 mod_to_install.version_to_install = mod_version;
             }
