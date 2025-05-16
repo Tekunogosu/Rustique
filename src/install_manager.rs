@@ -5,11 +5,12 @@ use crate::api::download::download_requested_mods;
 use crate::commands::sync::ModSyncInfo;
 use crate::rustique_errors::RustiqueError;
 use crate::utils::extract_zip_metadata;
-use crate::version_management::parse_latest_version;
+use crate::version_management::{parse_latest_version, parse_pinned_version};
 use rayon::prelude::*;
 use std::collections::{HashMap};
 use std::path::{Path, PathBuf};
 use tracing::{error, info};
+use crate::config_manager::get_config;
 use crate::traits::string_ext::StrLowerExt;
 
 // install & update both will obtain the info needed to fill this struct
@@ -66,6 +67,7 @@ pub async fn install_manager(
     // info!("mods_requested: {:#?}", mods_requested);
 
     let client = ApiClient::new();
+    let config = get_config().read().await;
 
     // This vec is filled and then consumed within download_requested_mods
     // each iteration of the loop will add new mods from dependencies to be processed next
@@ -160,7 +162,12 @@ pub async fn install_manager(
             if let Some(res_mod) =  result.get(mod_to_install.mod_id.as_str()) {
                 mod_to_install.mod_name = res_mod.mod_json.name.clone().unwrap_or_default();
                 // TODO: version pinning here??
-                let (mod_version, download_url) = parse_latest_version(&res_mod.mod_json.releases);
+                let pkg = config.pkg.iter().find(|p| p.mod_id.eq(&res_mod.mod_json.mod_id.to_string()));
+                let (mod_version, download_url, _) = if let Some(mod_pkg) = pkg {
+                    parse_pinned_version(&res_mod.mod_json.releases, mod_pkg.clone(), config.pinned_game_version.clone())
+                } else {
+                    parse_latest_version(&res_mod.mod_json.releases)
+                };
                 mod_to_install.download_url = download_url;
                 mod_to_install.version_to_install = mod_version;
             }

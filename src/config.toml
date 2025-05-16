@@ -8,6 +8,30 @@ auto_zip_mod_files = false
 # backup old versions of mods before updating them, IE dont delete
 backup_mods = false
 
+# How often to check the api for the latest versions of the game
+sync_latest_game_versions_every = 24
+# How often to update the search database from the api
+sync_mod_search_info_every = 24
+
+[[pkg]]
+mod_id = "rustboundmagic"
+pinned_version = "1.2.3"
+
+[[pkg]]
+mod_id = "alchemy"
+pinned_version = "2.3.4"
+
+[[pkg]]
+mod_id = "armory"
+# This prevents update from updating passed what is currently installed.
+# This can be set in conjunction with pinned_version, but its effectively the same thing.
+# Prevent_updates doesn't specify the version, so whatever is installed is what remains.
+prevent_updates = true
+
+
+
+
+
 [modpack]
 # dir for holding the mods of the currently installed modpack
 # only 1 can be enabled at a time as there may be version conflicts

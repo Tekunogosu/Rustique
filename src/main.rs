@@ -16,16 +16,17 @@ mod install_manager;
 mod traits;
 mod config_structs;
 mod flatten_map;
+mod information_utils;
 
 use crate::cli_commands::{Cli, Commands, ShellType};
 use crate::commands::arg_structs::modpack_args::ModpackCommands;
 use crate::commands::config::parse_config_args;
 use crate::commands::install::{install_cmd, install_missing_deps};
 use crate::commands::list::new_list;
-use crate::commands::sync::mods_search_sync;
+use crate::commands::sync::{daily_file_syncs, game_version_sync};
 use crate::config_manager::{get_config, init_config};
 use crate::logging::{init_logging, VerboseLevel};
-use crate::utils::{elapsed_footer, get_expanded_path, RustiqueOptions};
+use crate::utils::{get_expanded_path, RustiqueOptions};
 use clap::{CommandFactory, Parser};
 use clap_complete::{generate, Shell};
 use owo_colors::OwoColorize;
@@ -37,6 +38,7 @@ use std::process::exit;
 use std::time::Instant;
 use tracing::{debug, error, info, warn};
 use crate::commands::search::search;
+use crate::information_utils::elapsed_footer;
 
 fn main() {
     // Initialize the Tokio runtime
@@ -85,8 +87,15 @@ async fn async_main() {
     match &cli.command {
         Commands::Sync(args) => {
             // Sync will add a rustique-sync.json to a valid mod_dir
-            if args.ids {
-                match mods_search_sync(args.force).await {
+            if args.sync_search_db {
+                match daily_file_syncs(args.sync_search_db).await {
+                    Ok(_) => {},
+                    Err(e) => {
+                        error!("{}", e.to_string().red().bold());
+                    }
+                }
+            } else if args.sync_game_versions {
+                match game_version_sync(args.sync_game_versions).await {
                     Ok(_) => {},
                     Err(e) => {
                         error!("{}", e.to_string().red().bold());
@@ -95,7 +104,6 @@ async fn async_main() {
             } else {
                 handle_sync_call(&mod_dir).await;
             }
-
         }
         Commands::List(args) => {
             match new_list(&mod_dir, args.updates).await {

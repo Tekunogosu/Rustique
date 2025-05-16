@@ -1,9 +1,10 @@
 use crate::commands::arg_structs::config_args::{BoolArgs, CommonArgs, ConfigCommand, ConfigSubCommand};
 use crate::config_manager::{get_config, Config};
-use crate::utils::{command_output, display_table, get_expanded_path, CellData};
+use crate::utils::get_expanded_path;
 use std::path::PathBuf;
 use tracing::{warn};
 use crate::commands::config_table::config_table;
+use crate::information_utils::{command_output, display_table, CellData};
 
 pub async fn parse_config_args(config_cmd: &ConfigCommand) {
     match &config_cmd.subcommand {

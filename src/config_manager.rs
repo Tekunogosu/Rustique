@@ -1,6 +1,6 @@
 use crate::config_structs::Tables;
 use crate::rustique_errors::RustiqueError;
-use crate::utils::{CellData, RustiqueMessage, RustiqueOptions, rustique_message};
+use crate::utils::RustiqueOptions;
 use chrono::Local;
 use comfy_table::{Attribute, CellAlignment, Color};
 use dirs::home_dir;
@@ -12,6 +12,7 @@ use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::sync::OnceLock;
 use tokio::sync::RwLock;
+use crate::information_utils::{rustique_message, CellData, RustiqueMessage};
 
 #[derive(Deserialize, Serialize, Debug)]
 #[allow(clippy::struct_excessive_bools)]
@@ -34,8 +35,27 @@ pub struct Config {
     pub show_execution_time: bool,
 
     pub notify_of_unzipped_mods: bool,
+    
+    #[serde(default)]
+    pub pkg: Vec<Package>,
+   
+    #[serde(default = "default_sync_time")]
+    pub sync_latest_game_version_file_every: u32,
+    #[serde(default = "default_sync_time")]
+    pub sync_mod_search_file_every: u32,
 
     pub table: Tables,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, Default)]
+pub struct Package {
+    pub mod_id: String,
+    #[serde(default)]
+    pub pinned_version: Option<String>,
+}
+
+fn default_sync_time() -> u32 {
+    24
 }
 
 impl Config {
@@ -70,6 +90,9 @@ impl Default for Config {
             backup_mods_dir: backup_mods_dir.to_string_lossy().to_string(),
             show_execution_time: true,
             notify_of_unzipped_mods: false,
+            sync_latest_game_version_file_every: 24,
+            sync_mod_search_file_every: 24,
+            pkg: Vec::default(),
             table: Tables::with_defaults(),
         }
     }

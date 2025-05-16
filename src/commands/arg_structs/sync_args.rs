@@ -2,15 +2,25 @@ use clap::Args;
 
 #[derive(Args)]
 pub struct SyncArgs {
-    /// Sync the mod ids from the api and save it to a local file in ~/.config/rustique/mod-id-sync.json.
+    /// Sync the mod info from the api endpoint /api/mods and save it locally.
+    /// 
+    /// This file is used for the search command so we are not making a ton of unneeded api calls and
+    /// to obtain the mod-id for mods that don't provide one in their modinfo.json
+    /// 
+    /// linux/mac: [~/.config/rustique/mod-id-sync.json.]
+    /// 
+    /// windows: [%appdata%/rustique/mod-id-sync.json]
     ///
-    /// This is created to help Rustique manage mods which do not provide a `mod_id` in their `modinfo.json` file (which it's suppose to).
-    ///
-    /// Synced automatically once a day. Use with --force to update now.
-    #[arg(short, long)]
-    pub ids: bool,
-
-    /// Used with --ids to force an update of the mod ids
-    #[arg(short, long, requires = "ids")]
-    pub force: bool,
+    #[arg(short = 's', long)]
+    pub sync_search_db: bool,
+    
+    /// Sync a local list of all game versions from the api. This is used with version pinning to ensure
+    /// we have accurate version numbers.
+    /// 
+    /// linux/mac: [~/.config/rustique/game-versions.json]
+    /// 
+    /// windows: [%appdata%/rustique/game-versions.json]
+    /// 
+    #[arg(short = 'g', long)] 
+    pub sync_game_versions: bool,
 }

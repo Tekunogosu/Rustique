@@ -1,8 +1,8 @@
 use crate::aliases::{ModID, ModName};
-use crate::api::api_structs::{Mod, Mods};
+use crate::api::api_structs::{GameVersions, Mod, Mods};
 use crate::rustique_errors::RustiqueError;
 use owo_colors::OwoColorize;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::{error, info};
@@ -128,9 +128,24 @@ impl ApiClient {
         Ok(results)
     }
 
-    // pub fn _fetch_game_versions(&self) -> Result<HashSet<String>, RustiqueError> {
-    //     Ok(HashSet::new())
-    // }
+    pub async fn fetch_game_versions(&self) -> Result<HashSet<String>, RustiqueError> {
+        let res = self.agent.get(Self::uri("gameversions"))
+            .send().await
+            .map_err(|e| RustiqueError::ApiError {
+            context: "Failed during gameversions api call".to_string(),
+            source: e,
+        })?;
+       
+        let versions = res.json::<GameVersions>().await.map_err(|e| RustiqueError::ApiError {
+            context: "Failed parsing game versions api data".to_string(),
+            source: e,
+        })?;
+        
+        let hash: HashSet<String> = versions.game_versions
+            .iter().map(|gv| &gv.name).cloned().collect();
+        
+        Ok(hash)
+    }
 
     pub async fn get_request(&self, mod_uri: &str) -> Result<reqwest::Response, RustiqueError> {
         self.agent.get(mod_uri)

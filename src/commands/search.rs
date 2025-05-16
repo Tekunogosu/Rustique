@@ -8,14 +8,17 @@ use comfy_table::{Cell, ContentArrangement, Row, Table};
 use tracing::debug;
 use crate::api::api_structs::{ModApi, ModsSearchFile};
 use crate::commands::arg_structs::search_args::SearchArgs;
-use crate::commands::sync::{parse_json_file, SEARCH_FILE_NAME};
 use crate::config_manager::{get_config, Config};
 use crate::config_structs::SearchColumn;
+use crate::information_utils::prep_cell;
 use crate::rustique_errors::RustiqueError;
 use crate::traits::option_ext::OptionExt;
 use crate::traits::search_traits::{Searchable, SortValue, Sortable};
 use crate::traits::vec_ext::VecStringExt;
-use crate::utils::prep_cell;
+use crate::utils::{parse_json_file};
+
+
+pub const SEARCH_FILE_NAME: &str = "mod-search.json";
 
 impl Searchable for ModApi {
     fn matches_text(&self, query: &str) -> bool {

@@ -3,7 +3,7 @@ use crate::api::api_structs::{ModInfo};
 use crate::commands::sync::{get_sync_data, ModSyncInfo};
 use crate::config_manager::{get_config};
 use crate::rustique_errors::RustiqueError;
-use crate::utils::{extract_all_mods_metadata, gather_dependencies, gather_missing_dependencies, prep_cell, sanitize_string};
+use crate::utils::{extract_all_mods_metadata, gather_dependencies, gather_missing_dependencies, sanitize_string};
 use crate::version_management::parse_version;
 use owo_colors::OwoColorize;
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
@@ -13,6 +13,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Instant;
 use crate::config_structs::{CellAttr, CellColor, ListColumn};
+use crate::information_utils::prep_cell;
 use crate::install_manager::Install;
 
 fn grab_this_mod_deps(mod_info: &ModInfo, dep_list: &[Install]) -> String {
@@ -95,79 +96,102 @@ pub async fn new_list(mod_dir: &PathBuf, only_updated: bool) -> Result<(), Rusti
             }
         })
         .map(|(filename, mod_info)| {
-        let cells: Vec<Cell> = list_columns.cells.iter().map(|(column, properties)| {
-            let color = properties.color.clone();
-            let attr = properties.attribute.clone();
+           
+            let pkg = config.pkg.iter().find(|p| p.mod_id.eq(&mod_info.mod_id));
+            let cells: Vec<Cell> = list_columns.cells.iter().map(|(column, properties)| { 
+                let color = properties.color.clone();
+                let attr = properties.attribute.clone();
 
-            let (mod_sync_id, mod_sync_data): (ModID, ModSyncInfo) = sync_data.rustique_sync
-                .iter()
-                .filter_map(|(mod_id, mod_sync)| {
-                if **mod_id == mod_info.mod_id
-                    || mod_info.name == mod_sync.mod_name
-                    || *filename == mod_sync.file_name {
-                    Some((mod_id.clone(), mod_sync.clone()))
-                } else {
-                    None
-                }
-            }).next().unwrap_or_default();
-
-            match <ListColumn as FromStr>::from_str(column) {
-                Ok(ListColumn::Name) => {
-                    prep_cell(&mod_info.name.clone(), color, attr, None)
-
-                },
-                Ok(ListColumn::ModId) => {
-                    let txt = if !mod_info.mod_id.is_empty() {
-                        mod_info.mod_id.clone()
-                    } else if !mod_sync_id.is_empty() {
-                        mod_sync_id.clone()
+                let (mod_sync_id, mod_sync_data): (ModID, ModSyncInfo) = sync_data.rustique_sync
+                    .iter()
+                    .filter_map(|(mod_id, mod_sync)| {
+                    if **mod_id == mod_info.mod_id
+                        || mod_info.name == mod_sync.mod_name
+                        || *filename == mod_sync.file_name {
+                        Some((mod_id.clone(), mod_sync.clone()))
                     } else {
-                        String::from("UNKNOWN")
-                    };
-                    prep_cell(&txt, color, attr, None)
-                },
-                Ok(ListColumn::Version) => {
-                    let txt = parse_version(&mod_info.version.clone().unwrap_or_default()).unwrap();
-                    prep_cell(&txt.to_string(), color, attr, None)
-                },
-                Ok(ListColumn::LatestVersion) => {
-                    let latest = mod_sync_data.latest_known_version.clone();
-                    if latest == mod_info.version.clone().unwrap_or(String::new()) {
-                        prep_cell(&latest, color, attr, None)
-                    } else {
-                        prep_cell(&latest, Some(CellColor::Red), Some(CellAttr::Bold), None)
+                        None
                     }
+                }).next().unwrap_or_default();
 
-                },
-                Ok(ListColumn::Description) => {
-                    let txt = sanitize_string(&mod_info.description.clone().unwrap_or(String::new()));
-                    prep_cell(&txt, color, attr, None)
-                },
-                Ok(ListColumn::Deps) => {
-                    let deps = grab_this_mod_deps(mod_info, &all_deps.clone());
-                    prep_cell(&deps, color, attr, Some(','))
-                }
-                Ok(ListColumn::MissingDeps) => {
-                   let missing = grab_this_mod_deps(mod_info, &missing_deps.clone());
-                    prep_cell(&missing, color, attr, Some(','))
-                }
-                Ok(ListColumn::Filename) => {
-                    prep_cell(filename.as_str(), color, attr, None)
-                },
-                Ok(ListColumn::LastUpdateLocal 
-                   | ListColumn::LastUpdateRemote 
-                   | ListColumn::HasBackup 
-                   | ListColumn::Changelog 
-                   | ListColumn::PinnedVersion
-                   | ListColumn::GameVersion) => {
-                    prep_cell("NOT IMPLEMENTED", color, attr, None)
-                }
-                Ok(ListColumn::Website) => {
-                    prep_cell(mod_info.website.clone().unwrap_or_default().as_str(), color, attr, None)
-                },
-                _ => prep_cell("", color, attr, None)
-            }
-        }).collect();
+                match <ListColumn as FromStr>::from_str(column) {
+                    Ok(ListColumn::Name) => {
+                        prep_cell(&mod_info.name.clone(), color, attr, None)
+
+                    },
+                    Ok(ListColumn::ModId) => {
+                        let txt = if !mod_info.mod_id.is_empty() {
+                            mod_info.mod_id.clone()
+                        } else if !mod_sync_id.is_empty() {
+                            mod_sync_id.clone()
+                        } else {
+                            String::from("UNKNOWN")
+                        };
+                        prep_cell(&txt, color, attr, None)
+                    },
+                    Ok(ListColumn::Version) => {
+                        let txt = parse_version(&mod_info.version.clone().unwrap_or_default()).unwrap();
+                        prep_cell(&txt.to_string(), color, attr, None)
+                    },
+                    Ok(ListColumn::LatestVersion) => {
+                        let latest = mod_sync_data.latest_known_version.clone();
+                        let mut pinned = String::new(); 
+                        if pkg.is_some() {
+                            pinned += " (pinned)";
+                        }
+                        
+                        if latest == mod_info.version.clone().unwrap_or(String::new()) {
+                            prep_cell((latest + &pinned).as_str(), color, attr, None)
+                        } else {
+                            prep_cell((latest + &pinned).as_str(), Some(CellColor::Red), Some(CellAttr::Bold), None)
+                        }
+
+                    },
+                    Ok(ListColumn::PinnedVersion) => {
+                        pkg.and_then(|mod_pkg| mod_pkg.pinned_version.as_ref())
+                            .map_or_else(
+                                || prep_cell("", color.clone(), attr.clone(), None),
+                                |pinned_version| prep_cell(pinned_version, color.clone(), attr.clone(), None)
+                            )
+                    }
+                    Ok(ListColumn::Description) => {
+                        let txt = sanitize_string(&mod_info.description.clone().unwrap_or(String::new()));
+                        prep_cell(&txt, color, attr, None)
+                    },
+                    Ok(ListColumn::Deps) => {
+                        let deps = grab_this_mod_deps(mod_info, &all_deps.clone());
+                        prep_cell(&deps, color, attr, Some(','))
+                    }
+                    Ok(ListColumn::MissingDeps) => {
+                       let missing = grab_this_mod_deps(mod_info, &missing_deps.clone());
+                        prep_cell(&missing, color, attr, Some(','))
+                    }
+                    Ok(ListColumn::Filename) => {
+                        prep_cell(filename.as_str(), color, attr, None)
+                    },
+                    
+                    Ok(ListColumn::GameVersion) => {
+                        // show a range from oldest to newest, newest is always the first value of the list
+                        let gv  = mod_sync_data.game_versions;
+                        let game_versions = if gv.len() > 1  {
+                            format!("{} - {}", gv[gv.len() - 1], gv[0])
+                        } else {
+                            gv.join(",")
+                        };
+                        prep_cell(&game_versions, color, attr, None)
+                    }
+                    Ok(ListColumn::LastUpdateLocal 
+                       | ListColumn::LastUpdateRemote 
+                       | ListColumn::HasBackup 
+                       | ListColumn::Changelog) => {
+                        prep_cell("NOT IMPLEMENTED", color, attr, None)
+                    }
+                    Ok(ListColumn::Website) => {
+                        prep_cell(mod_info.website.clone().unwrap_or_default().as_str(), color, attr, None)
+                    },
+                    _ => prep_cell("", color, attr, None)
+                } 
+            }).collect();
 
         Row::from(cells)
     }).collect();

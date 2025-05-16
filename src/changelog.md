@@ -1,3 +1,6 @@
+# Version 0.3.1-alpha
+
+
 # Version 0.3.0-alpha
 * Implemented search! Checkout `Rustique help search` on how to use it
 * You can now change what information to display with search via the config file!

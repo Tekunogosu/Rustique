@@ -207,7 +207,7 @@ pub struct ApiModJson {
     #[serde(default, rename = "lastmodified",skip_serializing_if = "Option::is_none")]
     pub last_modified: Option<String>,
     #[serde(default)]
-    pub tags: Vec<Option<String>>,
+    pub tags: Vec<String>,
     #[serde(default)]
     pub releases: Vec<Releases>,
     #[serde(default)]
@@ -215,6 +215,7 @@ pub struct ApiModJson {
 }
 
 #[derive(Deserialize, Serialize, Debug)]
+#[derive(Clone)]
 pub struct Releases {
     #[serde(default, rename = "release_id")]
     pub release_id: u32,
@@ -231,7 +232,7 @@ pub struct Releases {
     #[serde(default)]
     pub downloads: u32,
     #[serde(default)]
-    pub tags: Vec<Option<String>>,
+    pub tags: Vec<String>,
     #[serde(default, rename = "modidstr")]
     pub modid_str: Option<String>,
     #[serde(default, rename = "modversion")]
@@ -283,7 +284,7 @@ pub struct GameVersions {
     #[serde(default, rename = "statuscode")]
     pub status_code: String,
     #[serde(default, rename = "gameversions")]
-    pub game_versions: Vec<String>,
+    pub game_versions: Vec<GameVersion>,
 }
 
 #[derive(Deserialize, Serialize, Debug)]

@@ -1,9 +1,9 @@
 use crate::aliases::ModID;
-use crate::commands::sync::{parse_json_file, ModSyncInfo, RustiqueSyncJson, SYNC_FILE_NAME};
+use crate::commands::sync::{ModSyncInfo, RustiqueSyncJson, SYNC_FILE_NAME};
 use crate::config_manager::get_config;
 use crate::install_manager::{install_manager, Install, Installed};
 use crate::rustique_errors::RustiqueError;
-use crate::utils::{delete_file, display_installation_results, elapsed_footer, notice};
+use crate::utils::{delete_file, parse_json_file};
 use owo_colors::OwoColorize;
 use comfy_table::{Attribute, Color};
 use std::collections::HashMap;
@@ -11,14 +11,14 @@ use std::path::{PathBuf};
 use std::process::exit;
 use std::time::Instant;
 use tracing::{debug, info};
-
+use crate::information_utils::{display_installation_results, elapsed_footer, notice};
 
 #[allow(clippy::map_entry)]
 pub async fn update_mods(mod_dir: &PathBuf, update_mod_ids: Vec<ModID>, keep_old_files: bool) -> Result<(), RustiqueError> {
     let start_time = Instant::now();
     let config = get_config().read().await;
     let sync_data = parse_json_file::<RustiqueSyncJson>(&PathBuf::from(mod_dir).join(SYNC_FILE_NAME));
-
+    
     if sync_data.is_ok() {
         notice("Updating mods...", Option::from(Color::Yellow), vec![Attribute::Bold]);
         let sync_data = sync_data?;
@@ -52,18 +52,22 @@ pub async fn update_mods(mod_dir: &PathBuf, update_mod_ids: Vec<ModID>, keep_old
         let final_mod_update_list: Vec<Install> = mods_to_check_update
             .into_iter()
             .filter_map(|(mod_id, mod_sync_info)| {
-
-            if mod_sync_info.latest_known_version != mod_sync_info.installed_version && !mod_id.is_empty() {
-                Some(Install {
-                    mod_id: mod_id.to_lowercase(),
-                    mod_name: mod_sync_info.mod_name.clone(),
-                    version_to_install: mod_sync_info.latest_known_version.clone(),
-                    download_url: mod_sync_info.latest_download_url.clone(),
-                    current_file_path: Some(mod_dir.clone().join(mod_sync_info.file_name)),
-                })
-            } else {
-                None
-            }
+               
+                // if mod_id is present in the [[pkg]] section of the config, check if we are allowed to update the mod
+                
+                
+                
+                if mod_sync_info.latest_known_version != mod_sync_info.installed_version && !mod_id.is_empty() { 
+                    Some(Install { 
+                        mod_id: mod_id.to_lowercase(),
+                        mod_name: mod_sync_info.mod_name.clone(),
+                        version_to_install: mod_sync_info.latest_known_version.clone(),
+                        download_url: mod_sync_info.latest_download_url.clone(),
+                        current_file_path: Some(mod_dir.clone().join(mod_sync_info.file_name)),
+                    })
+                } else {
+                    None
+                }
         }).collect();
 
         debug!("final_mod_update_list: {:#?}", final_mod_update_list);

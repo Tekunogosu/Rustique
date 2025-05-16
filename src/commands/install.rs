@@ -4,11 +4,11 @@ use crate::commands::sync::{get_sync_data};
 use crate::install_manager::{install_manager, Install};
 use crate::rustique_errors::RustiqueError;
 use crate::rustique_errors::RustiqueError::SimpleError;
-use crate::utils::{display_installation_results, extract_all_mods_metadata, gather_missing_dependencies, notice};
+use crate::utils::{extract_all_mods_metadata, gather_missing_dependencies};
 use crate::version_management::{parse_latest_version};
 use std::path::PathBuf;
 use tracing::{debug, info};
-
+use crate::information_utils::{display_installation_results, notice};
 
 // Report if trying install a mod that already exists
 // Use -f to force an installation
@@ -35,7 +35,7 @@ pub async fn install_cmd(mod_dir: &PathBuf, mods_requested: Vec<ModID>, force: b
 
     let mods_requested: Vec<Install> =
         result.into_iter().map(|(mod_id, mod_info)| {
-            let (version, download_url) = parse_latest_version(&mod_info.mod_json.releases);
+            let (version, download_url, _) = parse_latest_version(&mod_info.mod_json.releases);
             Install {
                 mod_id: mod_id.clone(),
                 mod_name: mod_info.mod_json.name.unwrap_or_default(),
@@ -81,7 +81,7 @@ pub async fn install_missing_deps(mod_dir: &PathBuf, mods_requested: Vec<ModID>)
     for mod_info in &mut missing_deps {
         if let Some(data) = result.get(&mod_info.mod_id) {
             mod_info.mod_name = data.mod_json.name.clone().unwrap_or_default();
-            let (version, download_url) = parse_latest_version(&data.mod_json.releases);
+            let (version, download_url, _) = parse_latest_version(&data.mod_json.releases);
             mod_info.download_url = download_url;
             mod_info.version_to_install = version;
         }
