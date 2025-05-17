@@ -66,14 +66,12 @@ The commands are as follows:
 | `./Rustique install alchemy`                      | Install a new mod and its dependencies. Case-insensitive                                                                                                                                                                  |
 | `./Rustique install --missing-dependencies`       | Install all missing dependencies found in your mod directory                                                                                                                                                              |
 | `./Rustique config set --mod-dir /path/to/mods`   | Set your default mod directory if non-default. This way you don't have to pass -m each time you use Rustique                                                                                                              |
+| `./Rustique info --mod-id alchemy`                | See more information, including changelogs and versions, for the specified mod. Use with [-v num] to see `num` amount of changelogs                                                                                       |
+| `./Rustique search -q magic`                      | Search the mods DB for any mod that has the word magic in it. -q by itself is a generic search and searches all text fields. See `Rustique help search` for more options.                                                 |
 
 
 ## Missing Features
-* Version pinning.
-* `Search` for new mods.
-* `Modpack` creation, installation, and management. There is no default mod pack capability for VS, so Rustique will fill that void. 
-* `Changelog` for mods.
-* `List` table view configuration.
+* `Modpack` creation, installation, and management. There is no default mod pack capability for VS, so Rustique will fill that void.
 * GUI - Yes, a GUI is planned! This is a ways out and will only happen after Rustique is more or less feature complete. 
 
 
