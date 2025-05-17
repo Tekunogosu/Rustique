@@ -8,7 +8,7 @@ use crate::version_management::parse_version;
 use owo_colors::OwoColorize;
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
 use comfy_table::presets::UTF8_FULL;
-use comfy_table::{Cell, ContentArrangement, Row, Table};
+use comfy_table::{Cell, CellAlignment, ContentArrangement, Row, Table};
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Instant;
@@ -60,7 +60,7 @@ pub async fn new_list(mod_dir: &PathBuf, only_updated: bool) -> Result<(), Rusti
             Ok(ListColumn::Website) => "Website",
             _ => "N/A"
         };
-        prep_cell(col_txt, color, attr, None)
+        prep_cell(col_txt, color, attr, None, None)
     }).collect();
     table.set_header(Row::from(header_cells));
 
@@ -116,7 +116,7 @@ pub async fn new_list(mod_dir: &PathBuf, only_updated: bool) -> Result<(), Rusti
 
                 match <ListColumn as FromStr>::from_str(column) {
                     Ok(ListColumn::Name) => {
-                        prep_cell(&mod_info.name.clone(), color, attr, None)
+                        prep_cell(&mod_info.name.clone(), color, attr, None, None)
 
                     },
                     Ok(ListColumn::ModId) => {
@@ -127,11 +127,11 @@ pub async fn new_list(mod_dir: &PathBuf, only_updated: bool) -> Result<(), Rusti
                         } else {
                             String::from("UNKNOWN")
                         };
-                        prep_cell(&txt, color, attr, None)
+                        prep_cell(&txt, color, attr, None, None)
                     },
                     Ok(ListColumn::Version) => {
                         let txt = parse_version(&mod_info.version.clone().unwrap_or_default()).unwrap();
-                        prep_cell(&txt.to_string(), color, attr, None)
+                        prep_cell(&txt.to_string(), color, attr, None, Some(CellAlignment::Right))
                     },
                     Ok(ListColumn::LatestVersion) => {
                         let latest = mod_sync_data.latest_known_version.clone();
@@ -141,33 +141,33 @@ pub async fn new_list(mod_dir: &PathBuf, only_updated: bool) -> Result<(), Rusti
                         }
                         
                         if latest == mod_info.version.clone().unwrap_or(String::new()) {
-                            prep_cell((latest + &pinned).as_str(), color, attr, None)
+                            prep_cell((latest + &pinned).as_str(), color, attr, None, Some(CellAlignment::Right))
                         } else {
-                            prep_cell((latest + &pinned).as_str(), Some(CellColor::Red), Some(CellAttr::Bold), None)
+                            prep_cell((latest + &pinned).as_str(), Some(CellColor::Red), Some(CellAttr::Bold), None, Some(CellAlignment::Right))
                         }
 
                     },
                     Ok(ListColumn::PinnedVersion) => {
                         pkg.and_then(|mod_pkg| mod_pkg.pinned_version.as_ref())
                             .map_or_else(
-                                || prep_cell("", color.clone(), attr.clone(), None),
-                                |pinned_version| prep_cell(pinned_version, color.clone(), attr.clone(), None)
+                                || prep_cell("", color.clone(), attr.clone(), None, Some(CellAlignment::Right)),
+                                |pinned_version| prep_cell(pinned_version, color.clone(), attr.clone(), None, Some(CellAlignment::Right))
                             )
                     }
                     Ok(ListColumn::Description) => {
                         let txt = sanitize_string(&mod_info.description.clone().unwrap_or(String::new()));
-                        prep_cell(&txt, color, attr, None)
+                        prep_cell(&txt, color, attr, None, None)
                     },
                     Ok(ListColumn::Deps) => {
                         let deps = grab_this_mod_deps(mod_info, &all_deps.clone());
-                        prep_cell(&deps, color, attr, Some(','))
+                        prep_cell(&deps, color, attr, Some(','), None)
                     }
                     Ok(ListColumn::MissingDeps) => {
                        let missing = grab_this_mod_deps(mod_info, &missing_deps.clone());
-                        prep_cell(&missing, color, attr, Some(','))
+                        prep_cell(&missing, color, attr, Some(','), None)
                     }
                     Ok(ListColumn::Filename) => {
-                        prep_cell(filename.as_str(), color, attr, None)
+                        prep_cell(filename.as_str(), color, attr, None, None)
                     },
                     
                     Ok(ListColumn::GameVersion) => {
@@ -178,18 +178,18 @@ pub async fn new_list(mod_dir: &PathBuf, only_updated: bool) -> Result<(), Rusti
                         } else {
                             gv.join(",")
                         };
-                        prep_cell(&game_versions, color, attr, None)
+                        prep_cell(&game_versions, color, attr, None, Some(CellAlignment::Right))
                     }
                     Ok(ListColumn::LastUpdateLocal 
                        | ListColumn::LastUpdateRemote 
                        | ListColumn::HasBackup 
                        | ListColumn::Changelog) => {
-                        prep_cell("NOT IMPLEMENTED", color, attr, None)
+                        prep_cell("NOT IMPLEMENTED", color, attr, None, None)
                     }
                     Ok(ListColumn::Website) => {
-                        prep_cell(mod_info.website.clone().unwrap_or_default().as_str(), color, attr, None)
+                        prep_cell(mod_info.website.clone().unwrap_or_default().as_str(), color, attr, None, None)
                     },
-                    _ => prep_cell("", color, attr, None)
+                    _ => prep_cell("", color, attr, None, None)
                 } 
             }).collect();
 

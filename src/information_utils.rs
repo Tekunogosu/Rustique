@@ -23,9 +23,7 @@ pub fn rustique_message(rustique_message: RustiqueMessage) {
             let header_data = header_data.unwrap_or_default();
             let mut h_cell = Cell::new(header_data.text);
             if !header_data.attributes.is_empty() {
-                for attribute in &header_data.attributes {
-                    h_cell = h_cell.add_attribute(*attribute);
-                }
+                h_cell = h_cell.add_attributes(header_data.attributes);
             }
             h_cell = h_cell.fg(header_data.color.unwrap_or(Color::Green))
                            .set_alignment(header_data.alignment.unwrap_or(CellAlignment::Center));
@@ -72,9 +70,7 @@ pub fn notice(message: &str, fg_color: Option<Color>, attributes: Vec<Attribute>
     }
 
     if !attributes.is_empty() {
-        for attribute in attributes {
-            cell = cell.add_attribute(attribute);
-        }
+        cell = cell.add_attributes(attributes);
     }
 
     cell = cell.set_alignment(CellAlignment::Center);
@@ -86,21 +82,23 @@ pub fn notice(message: &str, fg_color: Option<Color>, attributes: Vec<Attribute>
     println!("{table}");
 }
 
-pub fn prep_cell(text: &str, color: Option<CellColor>, attribute: Option<CellAttr>, delimiter: Option<char>) -> Cell {
+pub fn prep_cell(text: &str, color: Option<CellColor>, attribute: Option<CellAttr>, delimiter: Option<char>, alignment: Option<CellAlignment>) -> Cell {
     let mut cell = Cell::from(text);
 
     if color.is_some() {
         cell = cell.fg(Color::from(color.unwrap_or(CellColor::Reset)));
     }
 
-    // TODO: Add actual attribute type so any Comfy_table attribute can be used
-    // For now we limit the usable attributes
     if attribute.is_some() {
         cell = cell.add_attribute(Attribute::from(attribute.unwrap_or(CellAttr::NoHidden)));
     }
 
     if delimiter.is_some() {
         cell = cell.set_delimiter(delimiter.unwrap_or(' '));
+    }
+    
+    if alignment.is_some() {
+        cell = cell.set_alignment(alignment.unwrap_or(CellAlignment::Left));
     }
 
     cell

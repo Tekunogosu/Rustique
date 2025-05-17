@@ -29,6 +29,7 @@ tokio = { version = "1.44.2", features = ["fs", "rt-multi-thread", "macros"] }
 clap_complete = "4.5.50"
 owo-colors = { version = "4.2.0", features = ["supports-colors"] }
 indexmap = { version = "2.9.0", features = ["rayon", "serde"] }
+html2text = "0.15.0"
 
 [profile.dev]
 opt-level = 1

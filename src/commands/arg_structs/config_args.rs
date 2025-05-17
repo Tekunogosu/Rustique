@@ -1,4 +1,5 @@
 use clap::{ArgGroup, Args, Subcommand};
+use crate::aliases::ModID;
 use crate::commands::arg_structs::config_table_args::TableArgs;
 
 #[derive(Args)]
@@ -50,7 +51,7 @@ pub struct CommonArgs {
     #[arg(short, long)]
     pub notify_of_unzipped_mods: Option<bool>,
 
-    /// The highest game version Rustique will use to download mods (WIP)
+    /// Pin a specific game version. Rustique will only download mods that specifically state they support this version.
     ///
     /// Default: None
     #[arg(short, long, value_name = "GAME_VERSION")]
@@ -83,6 +84,16 @@ pub struct CommonArgs {
     /// Default: true
     #[arg(short, long)]
     pub show_execution_time: Option<bool>,
+    
+    /// Specify mod options. Use --pin-version to pin a version. 
+    #[arg(short, long, value_name = "MOD_ID")]
+    pub with_mod: Option<ModID>,
+    
+    /// Use with --with-mod to pin a specific mod version. Use `Rustique info modid --versions` to see all available versions.
+    ///
+    ///Note: Rustique does not validate the version being set here. 
+    #[arg(short = 'P', long, requires = "with_mod", value_name = "VERSION")]
+    pub pin_version: Option<String>,
 }
 #[derive(Args, Debug)]
 pub struct SetArgs {
@@ -94,6 +105,7 @@ pub struct SetArgs {
 #[allow(clippy::struct_excessive_bools)]
 pub struct BoolArgs {
 
+    // Default mod directory 
     #[arg(short, long)]
     pub mod_dir: bool,
 
@@ -115,5 +127,9 @@ pub struct BoolArgs {
     /// Rustique will attempt to identify mods that are not zipped and zip them for you.
     #[arg(short, long)]
     pub zip_mod_dirs: bool,
+   
+    /// Specify a pinned mod. Use `Rustique config list` to see all set mods and their IDs
+    #[arg(short = 'P', long, value_name = "MOD_ID")]
+    pub pinned_mod: Option<ModID>,
 }
 

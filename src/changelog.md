@@ -1,5 +1,10 @@
 # Version 0.3.1-alpha
-
+* Version pinning is live! You can now pin a specific mod version and/or a specific game version. There are some situations where you get weird results by setting both or mods not having an game version that matches at all. Please report any situations where you encounter errors. 
+* You can now enable the following columns for the list display table; Pinned Version, Game Version.
+* To pin a specific version of a mod use `Rustique config set -w mod-id -P 1.2.3`
+* To pin a specific game version use `Rustique config set -p 1.20.8`
+* The "Latest Version" in list command will now show (pinned) if a version has been pinned.
+* Columns with numbers displayed should now be right aligned.
 
 # Version 0.3.0-alpha
 * Implemented search! Checkout `Rustique help search` on how to use it

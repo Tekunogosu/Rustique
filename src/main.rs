@@ -37,6 +37,7 @@ use std::path::PathBuf;
 use std::process::exit;
 use std::time::Instant;
 use tracing::{debug, error, info, warn};
+use crate::commands::info::info;
 use crate::commands::search::search;
 use crate::information_utils::elapsed_footer;
 
@@ -166,7 +167,12 @@ async fn async_main() {
                 generate_completion(shell.clone());
         }
         Commands::Info(args) => {
-            info!("displaying stuff about the mod {:?}", args.mod_id);
+            match info(args).await {
+                Ok(_) => {}
+                Err(e) => {
+                    error!("{}", e.to_string().red().bold());
+                }
+            }
         }
         Commands::Search(args) => match search(args).await {
             Ok(()) => {}

@@ -4,7 +4,7 @@ use std::str::FromStr;
 use clap::ValueEnum;
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
 use comfy_table::presets::UTF8_FULL_CONDENSED;
-use comfy_table::{Cell, ContentArrangement, Row, Table};
+use comfy_table::{Cell, CellAlignment, ContentArrangement, Row, Table};
 use tracing::debug;
 use crate::api::api_structs::{ModApi, ModsSearchFile};
 use crate::commands::arg_structs::search_args::SearchArgs;
@@ -289,7 +289,7 @@ pub async fn show_search_table(results: Vec<ModApi>) {
             _ => "N/A"
         };
 
-        prep_cell(col_txt, color, attr, None)
+        prep_cell(col_txt, color, attr, None, None)
     }).collect();
 
     table.set_header(Row::from(col_cells));
@@ -299,13 +299,30 @@ pub async fn show_search_table(results: Vec<ModApi>) {
             let color = v.color.clone();
             let attr = v.attribute.clone();
 
+            let mut right_align = false;
+            
             let col_txt = match <SearchColumn as FromStr>::from_str(k) {
                 Ok(SearchColumn::Name)      => m.name.clone().unwrap_or_default(),
-                Ok(SearchColumn::ModId)     => m.mod_id.to_string(),
-                Ok(SearchColumn::AssetId)   => m.asset_id.to_string(),
-                Ok(SearchColumn::Downloads) => m.downloads.to_string(),
-                Ok(SearchColumn::Follows)   => m.follows.to_string(),
-                Ok(SearchColumn::Trending)  => m.trending_points.to_string(),
+                Ok(SearchColumn::ModId)     => {
+                    right_align = true;
+                    m.mod_id.to_string()
+                },
+                Ok(SearchColumn::AssetId)   => {
+                    right_align = true;
+                    m.asset_id.to_string()
+                },
+                Ok(SearchColumn::Downloads) => {
+                    right_align = true;
+                    m.downloads.to_string()
+                },
+                Ok(SearchColumn::Follows)   => {
+                    right_align = true;
+                    m.follows.to_string()
+                },
+                Ok(SearchColumn::Trending)  => {
+                    right_align = true;
+                    m.trending_points.to_string()
+                },
                 Ok(SearchColumn::Comments)  => m.comments.to_string(),
                 Ok(SearchColumn::Summary)   => m.summary.clone().unwrap_or_default(),
                 Ok(SearchColumn::ModidStrs) => m.mod_id_strs.join(","),
@@ -314,10 +331,18 @@ pub async fn show_search_table(results: Vec<ModApi>) {
                 Ok(SearchColumn::Side)      => m.side.clone().unwrap_or_default(),
                 Ok(SearchColumn::Type)      => m.mod_type.clone().unwrap_or_default(),
                 Ok(SearchColumn::Tags)      => m.tags.join(","),
-                Ok(SearchColumn::LastReleased) => m.last_released.clone().unwrap_or_default(),
+                Ok(SearchColumn::LastReleased) => {
+                    right_align = true;
+                    m.last_released.clone().unwrap_or_default()
+                },
                 _ => String::new()
             };
-            prep_cell(&col_txt, color, attr, None)
+            
+            if right_align {
+                prep_cell(&col_txt, color, attr, None, Some(CellAlignment::Right))
+            } else {
+                prep_cell(&col_txt, color, attr, None, None)
+            }
 
         }).collect();
 

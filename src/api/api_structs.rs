@@ -288,6 +288,7 @@ pub struct GameVersions {
 }
 
 #[derive(Deserialize, Serialize, Debug)]
+#[derive(PartialEq)]
 pub struct GameVersion {
     #[serde(default, rename = "tagid")]
     pub tag_id: u32,
