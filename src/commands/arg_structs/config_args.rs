@@ -78,6 +78,12 @@ pub struct CommonArgs {
     /// Rustique will attempt to identify mods that are not zipped and zip them for you. (WIP)
     #[arg(short, long)]
     pub zip_mod_dirs: Option<bool>,
+    
+    /// Set the default download directory to save vintage story when you use the download command.
+    /// 
+    /// By default, this is set to your Downloads directory in your home folder.
+    #[arg(short = 'g', long)]
+    pub game_download_dir: Option<String>,
 
     /// Displays how long a command takes to complete
     ///
@@ -120,6 +126,9 @@ pub struct BoolArgs {
     /// Directory for mod backups
     #[arg(short = 'B', long)]
     pub backup_mods_dir: bool,
+    
+    #[arg(short = 'g', long)]
+    pub game_download_dir: bool,
 
     #[arg(short, long)]
     pub notify_of_unzipped_mods: bool,

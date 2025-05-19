@@ -148,6 +148,18 @@ async fn set(args: &CommonArgs) {
             warn!("{} is not a valid directory", dir.to_string_lossy());
         }
     }
+    
+    if let Some(download_dir) = &args.game_download_dir {
+        let dir = get_expanded_path(PathBuf::from(download_dir));
+        if dir.exists() {
+            config.game_download_dir = dir.to_string_lossy().to_string();
+            save = true;
+            
+            display_vec.push(command_output("config.game_download_dir".to_string(), download_dir.to_string()));
+        } else {
+            warn!("{} is not a valid directory", dir.to_string_lossy());
+        }
+    }
 
     if save {
         config.save(None).unwrap();
@@ -213,6 +225,12 @@ async fn del(args: &BoolArgs) {
             save = true;
             display_vec.push(command_output("Removed pinned version from: ".to_string(), mod_id.to_string()));
         }
+    }
+    
+    if args.game_download_dir {
+        config.game_download_dir.clone_from(&defaults.game_download_dir);
+        save = true;
+        display_vec.push(command_output("config.game_download_dir".into(), defaults.game_download_dir.to_string()));
     }
 
 
