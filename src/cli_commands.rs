@@ -26,6 +26,7 @@ pub struct Cli {
     #[arg(short, long, default_value = "false")]
     pub debug: bool,
 
+    /// Specify the directory to manage mods. This takes priority over any other directory setting, including from the config file
     #[arg(short, long)]
     pub(crate) mods_dir: Option<String>,
 
@@ -69,7 +70,7 @@ pub enum Commands {
     Info(ModInfoArgs),
     
     #[command(about = "Create, download, update modpacks for VintageStory (Not Implemented)")]
-    ModPack {
+    MP {
         #[clap(subcommand)]
         command: ModpackCommands,
     },

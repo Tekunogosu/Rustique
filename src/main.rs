@@ -198,15 +198,8 @@ async fn async_main() {
                 error!("{}", e.to_string().red().bold());
             }
         },
-        Commands::ModPack{command} => {
-            match command {
-                ModpackCommands::Create(args) => {
-                    if args.mod_dir.is_some() {
-                        println!("Creating mod pack from {}", mod_dir.as_path().display());
-                    }
-                    println!("creating modpack with name: {}", &args.name);
-                }
-            }
+        Commands::MP{command} => {
+           println!("{command:?}");
         }
        Commands::Misc{ .. }=> {},
     }

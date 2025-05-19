@@ -38,6 +38,8 @@ pub struct Config {
     
     pub game_download_dir: String,
     
+    
+    
     #[serde(default)]
     pub pkg: Vec<Package>,
    

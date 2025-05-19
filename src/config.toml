@@ -30,18 +30,17 @@ prevent_updates = true
 
 
 
-
-
 [modpack]
-# dir for holding the mods of the currently installed modpack
-# only 1 can be enabled at a time as there may be version conflicts
-enabled_dir = "~/.config/rustique/modpacks/enabled"
-# this directory hold the cached versions of packs that you have disabled.
-# there will be a command to clean out old modpacks or individual ones
-disabled_dir = "~/.config/rustique/modpacks/disabled"
-# modpack filse will be downloaded from the mods website to here
-# once you ./rustique modpack enable modpack1, it do what it needs to set it up to run
+
+# Modpack file will be downloaded from the mods website to here, at this point they are considered `installed`
+# Once installed you can run `./Rustique mp enable modpack-name`
 download_dir = "~/.config/rustique/modpacks/downloads"
+
+# This location is for backing up your non-modpacks when enabling a modpack
+# The entire Mods folder will be moved here and renamed with the date to keep uniqueness if you choose to have more than one
+# By default, when you disable a modpack, the last folder created will be moved back into the ./config/VintagestoryData/Mods location
+# You will be able to override this with flags
+backup_dir = "~/.config/rustique/modpacks/backups/Mods-20250614"
 
 [[alias]]
 name = "custom_server"
