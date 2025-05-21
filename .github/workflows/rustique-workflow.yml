@@ -20,48 +20,53 @@ jobs:
             target: x86_64-unknown-linux-musl
             binary_name: Rustique
             asset_name: rustique-linux-x86_64
-          
+            rustflags: ""
+
           # Windows build
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             binary_name: Rustique.exe
             asset_name: rustique-windows-x86_64
-          
+            rustflags: "-C link-args=/SUBSYSTEM:CONSOLE"
+
           # macOS build
           - os: macos-latest
             target: x86_64-apple-darwin
             binary_name: Rustique
             asset_name: rustique-macos-x86_64
+            rustflags: ""
 
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Install Rust
       uses: dtolnay/rust-toolchain@stable
       with:
         targets: ${{ matrix.target }}
-    
+
     # Setup for Linux musl build
     - name: Install musl tools (Linux)
-      if: matrix.os == 'ubuntu-20.04'
+      if: matrix.os == 'ubuntu-latest
       run: |
         sudo apt-get update
         sudo apt-get install -y musl-tools musl-dev
 
     # Build with cargo
     - name: Build with Cargo
+      env:
+        RUSTFLAGS: ${{ matrix.rustflags }}
       run: cargo build --release --target ${{ matrix.target }}
-    
+
     # Prepare artifacts for upload - Linux
     - name: Prepare artifacts (Linux)
-      if: matrix.os == 'ubuntu-20.04'
+      if: matrix.os == 'ubuntu-latest'
       run: |
         cd target/${{ matrix.target }}/release
         strip ${{ matrix.binary_name }} || true
         tar -czf ${{ matrix.asset_name }}.tar.gz ${{ matrix.binary_name }}
         shasum -a 256 ${{ matrix.asset_name }}.tar.gz > ${{ matrix.asset_name }}.tar.gz.sha256
         mv ${{ matrix.asset_name }}.tar.gz ${{ matrix.asset_name }}.tar.gz.sha256 $GITHUB_WORKSPACE/
-      
+
     # Prepare artifacts for upload - macOS
     - name: Prepare artifacts (macOS)
       if: matrix.os == 'macos-latest'
@@ -71,7 +76,7 @@ jobs:
         tar -czf ${{ matrix.asset_name }}.tar.gz ${{ matrix.binary_name }}
         shasum -a 256 ${{ matrix.asset_name }}.tar.gz > ${{ matrix.asset_name }}.tar.gz.sha256
         mv ${{ matrix.asset_name }}.tar.gz ${{ matrix.asset_name }}.tar.gz.sha256 $GITHUB_WORKSPACE/
-    
+
     # Prepare artifacts for upload - Windows
     - name: Prepare artifacts (Windows)
       if: matrix.os == 'windows-latest'
@@ -81,7 +86,7 @@ jobs:
         Get-FileHash -Algorithm SHA256 ${{ matrix.asset_name }}.zip | Out-File ${{ matrix.asset_name }}.zip.sha256
         Move-Item ${{ matrix.asset_name }}.zip, ${{ matrix.asset_name }}.zip.sha256 $env:GITHUB_WORKSPACE/
       shell: pwsh
-    
+
     # Upload artifacts
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
@@ -103,7 +108,7 @@ jobs:
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v4
-      
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
