@@ -52,20 +52,22 @@ jobs:
       env:
         RUSTFLAGS: ${{ matrix.rustflags }}
       run: cargo build --release --target ${{ matrix.target }}
-
-    # Create ZIP for Linux/macOS
+    
     - name: Create ZIP (Linux/macOS)
       if: matrix.os != 'windows-latest'
       run: |
         cd target/${{ matrix.target }}/release
-        zip -j ${{ matrix.asset_name }}.zip ${{ matrix.binary_name }}
+        mkdir -p $GITHUB_WORKSPACE/dist
+        cp ${{ matrix.binary_name }} $GITHUB_WORKSPACE/dist/
+        cd $GITHUB_WORKSPACE
+        zip -j ${{ matrix.asset_name }}.zip dist/${{ matrix.binary_name }}
       
     # Create ZIP for Windows
     - name: Create ZIP (Windows)
       if: matrix.os == 'windows-latest'
       run: |
         cd target/${{ matrix.target }}/release
-        Compress-Archive -Path ${{ matrix.binary_name }} -DestinationPath ${{ matrix.asset_name }}.zip
+        Compress-Archive -Path ${{ matrix.binary_name }} -DestinationPath $env:GITHUB_WORKSPACE\${{ matrix.asset_name }}.zip
       shell: pwsh
 
     # Upload the ZIP artifacts only
@@ -73,7 +75,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.asset_name }}
-        path: target/${{ matrix.target }}/release/${{ matrix.asset_name }}.zip
+        path: ${{ matrix.asset_name }}.zip
         if-no-files-found: error
 
   release:
@@ -90,7 +92,7 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          files: release-artifacts/*/*
+          files: release-artifacts/*
           draft: false
           prerelease: false
         env:

@@ -45,6 +45,7 @@ impl RustiqueOptions {
 
     // this also works for mac
     pub fn unix() -> Self {
+        // TODO: check if dir exists, if not check for the flatpack dir, throw error message if none are found
         if let Some(home) = home_dir() {
             return RustiqueOptions {
                 mod_dir: Some(home.join(".config").join("VintagestoryData").join("Mods")),
