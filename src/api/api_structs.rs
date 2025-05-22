@@ -52,7 +52,7 @@ impl Display for StringOrBool {
 
 // Due to mod authors not following the modinfo.json spec for mods, we have to
 // put an alias for all fields found in modinfo.json file.
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Default)]
 pub struct ModInfo {
     #[serde(default, alias = "Name")]
     pub name: String,
@@ -75,9 +75,9 @@ pub struct ModInfo {
     #[serde(default, alias = "Website")]
     pub website: Option<String>,
     #[serde(default, alias = "Authors")]
-    pub authors: Option<Vec<String>>,
+    pub authors: Vec<String>,
     #[serde(default, alias = "Contributors")]
-    pub contributors: Option<Vec<String>>,
+    pub contributors: Vec<String>,
     #[serde(default, alias = "Side")]
     pub side: Option<String>,
     #[serde(default, rename = "requiredOnClient", alias = "RequiredOnClient", alias = "RequiredonClient", alias = "Requiredonclient", alias = "requiredonclient")]

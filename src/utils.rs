@@ -47,15 +47,41 @@ impl RustiqueOptions {
     pub fn unix() -> Self {
         // TODO: check if dir exists, if not check for the flatpack dir, throw error message if none are found
         if let Some(home) = home_dir() {
-            return RustiqueOptions {
-                mod_dir: Some(home.join(".config").join("VintagestoryData").join("Mods")),
+            let base =  home
+                .join(".config")
+                .join("VintagestoryData")
+                .join("Mods");
+            
+            let flatpak = home
+                .join(".var")
+                .join("app")
+                .join("at.vintagestory.VintageStory")
+                .join("config")
+                .join("VintagestoryData")
+                .join("Mods");
+            
+            let mut options = RustiqueOptions {
+                mod_dir: Some(PathBuf::new())
             };
+            
+            if base.exists() {
+                info!("normal mod dir found");
+                options.mod_dir = Some(base);
+            } else if flatpak.exists() {
+                info!("flatpak mod dir found");
+                options.mod_dir = Some(flatpak);
+            } else {
+                info!("Rustique was unable to find the default mod dir. Using empty dir for now.");
+                options.mod_dir = None;
+            }
+            
+            return options
         }
         panic!("Unable to determine user's home directory, do you have permissions??");
     }
 
     pub async fn get_mod_path(&self) -> PathBuf {
-        let default_path = Self::default().mod_dir.unwrap();
+        let default_path = self.mod_dir.clone().unwrap_or_default();
         let config = get_config().read().await;
         let config_mod_dir = PathBuf::from(&config.mod_dir);
 

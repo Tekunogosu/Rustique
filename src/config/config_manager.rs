@@ -89,7 +89,7 @@ impl Default for Config {
         Self {
             mod_dir: RustiqueOptions::default()
                 .mod_dir
-                .unwrap()
+                .unwrap_or_default()
                 .to_string_lossy()
                 .to_string(),
             pinned_game_version: String::new(), // if its empty then get the latest

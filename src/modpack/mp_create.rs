@@ -15,6 +15,7 @@ use crate::rustique_errors::RustiqueError;
 use crate::utils::{extract_all_mods_metadata, find_mod_id};
 use crate::version_management::parse_version;
 use owo_colors::OwoColorize;
+use serde_json::json;
 use crate::aliases::ModID;
 use crate::config::config_manager::{get_config, Config};
 
@@ -87,6 +88,8 @@ pub async fn mp_create(mod_dir: &PathBuf, mod_pack: &mut ModPackToml) -> Result<
     
     
     mod_pack.save(&save_location)?;
+    
+    mod_pack.gen_modinfo_json(&Config::get_path())?;
 
 
     Ok(())
