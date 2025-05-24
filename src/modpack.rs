@@ -7,6 +7,6 @@ pub mod mp_install;
 pub mod mp_update;
 pub mod mp_disable;
 pub mod mp_create;
-pub mod modpack_toml;
+pub mod modpack_zip;
 pub mod modpack_commands;
-mod symlink_manager;
+pub mod symlink_manager;

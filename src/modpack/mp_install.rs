@@ -8,22 +8,20 @@ use std::path::Path;
 use std::time::Instant;
 use comfy_table::{Attribute, Color};
 use owo_colors::OwoColorize;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
+use crate::api::api_structs::ModInfo;
 use crate::api::client::ApiClient;
 use crate::api::download::download_requested_mods;
-use crate::commands::arg_structs::modpack_args::{MPCreateArgs, MPInstallArgs};
-use crate::commands::install::install_cmd;
-use crate::commands::search::{parse_search_file, SearchQuery};
-use crate::commands::sync::{handle_sync_call, sync, ModSyncInfo, RustiqueSyncJson, SYNC_FILE_NAME};
-use crate::config::config_manager::get_config;
+use crate::commands::arg_structs::modpack_args::MPInstallArgs;
+use crate::config::config_manager::{get_config, Config};
+use crate::consts::FILE_MODINFO_JSON;
 use crate::information_utils::{command_output, display_table, elapsed_footer, notice};
-use crate::install_manager::{install_manager, Install, Installed};
-use crate::modpack::modpack_toml::ModPackToml;
+use crate::install_manager::{install_manager, Install};
 use crate::rustique_errors::RustiqueError;
-use crate::utils::{extract_all_mods_metadata, extract_zip_metadata, parse_json_file};
+use crate::utils::extract_zip_metadata;
 use crate::version_management::{parse_download_url_from_version, parse_latest_version};
 
-pub async fn mp_install(args: MPInstallArgs) -> Result<(), RustiqueError> {
+pub async fn mp_install(args: MPInstallArgs) -> Result<String, RustiqueError> {
     let start_time = Instant::now();
     // installing the modpack with this function will do the following:
     // Save the modpack.zip (the modpack from the mods website) to modpacks/packs
@@ -35,8 +33,7 @@ pub async fn mp_install(args: MPInstallArgs) -> Result<(), RustiqueError> {
     
     let mod_info = client.fetch_mod(&args.mod_id).await?;
 
-    let installed_dir = Path::new(&config.modpacks_dir).join("installed");
-
+    let installed_dir = Path::new(&config.modpacks.modpack_dir).join("installed");
     
     let (version, download_url, _) = parse_latest_version(&mod_info.mod_json.releases);
     
@@ -50,20 +47,19 @@ pub async fn mp_install(args: MPInstallArgs) -> Result<(), RustiqueError> {
     
     // download the modpack first, then install the dependencies
 
-    let packs_dir = Path::new(&config.modpacks_dir).join("packs");
+    let packs_dir = Path::new(&config.modpacks.modpack_dir).join("packs");
     let Some(modpack) = download_requested_mods(&packs_dir, &mut vec![install_modpack], &client).await?.into_iter().next() else {
             return Err(RustiqueError::SimpleError("Modpack download failure..".into()));
         };
 
     if let Some(modpack_packs_path) = modpack.installed_file_path {
-        let modpack_info = extract_zip_metadata::<ModPackToml>(&modpack_packs_path, "modpack.toml").inspect_err(|e| {
-            // bad or malformed modpack? maybe someone created it manually, 
-            // TODO should rustique use its own modpack.toml file? 
+        // Modpack is just a normal mod but we treat it differently when used with modpack
+        let modpack_info = extract_zip_metadata::<ModInfo>(&modpack_packs_path, FILE_MODINFO_JSON).inspect_err(|_| {
+            notice(format!("The requested modpack has a malformed {FILE_MODINFO_JSON} file and Rustique is unable to parse it."), Some(Color::Red), vec![Attribute::Bold]);
         })?;
 
         // The modpack is installed to the correct place, install all dependencies
-
-        let modpack_mod_path = installed_dir.join(&modpack_info.modpack.mpk_id);
+        let modpack_mod_path = installed_dir.join(&modpack_info.mod_id);
 
         if !modpack_mod_path.exists() {
             info!("Created {modpack_mod_path:?}");
@@ -71,16 +67,17 @@ pub async fn mp_install(args: MPInstallArgs) -> Result<(), RustiqueError> {
         }
 
         // grab the mod ids from the modpack
-        let mods = modpack_info.mods.values().map(|m| m.mod_id.clone()).collect();
+        let mods = modpack_info.dependencies.keys().cloned().collect();
         info!("MODS: {mods:?}");
         let deps = client.fetch_mods_parallel(mods).await?;
-
+        
         let install_mp_mods: Vec<Install> = deps.iter().filter_map(|(mod_id, mod_api)| {
-            if let Some(mp_mod) = modpack_info.mods.values().find(|u|u.mod_id.eq(mod_id)) {
-                let download_url = match parse_download_url_from_version(&mod_api.mod_json.releases, &mp_mod.version) {
+            // grab the mod from the modpack so we can actually download the correct version
+            if let Some((mp_mod_id,mp_mod_version)) = modpack_info.dependencies.iter().find(|(dep_mod_id, _) |dep_mod_id.eq(&mod_id)) {
+                let download_url = match parse_download_url_from_version(&mod_api.mod_json.releases, mp_mod_version) {
                     Ok(download_url) => download_url,
                     Err(e) => {
-                        warn!("{e}");
+                        warn!("Rustique can't download {}: {}", mp_mod_id.red(), e.red());
                         return None;
                     }
                 };
@@ -88,7 +85,7 @@ pub async fn mp_install(args: MPInstallArgs) -> Result<(), RustiqueError> {
                 Some(Install {
                     mod_id: mod_id.clone(),
                     mod_name: mod_api.mod_json.name.clone().unwrap_or_default(),
-                    version_to_install: mp_mod.version.clone(),
+                    version_to_install: mp_mod_version.clone(),
                     download_url,
                     current_file_path: None,
                 })
@@ -100,12 +97,16 @@ pub async fn mp_install(args: MPInstallArgs) -> Result<(), RustiqueError> {
         debug!("Need to download {install_mp_mods:#?}");
 
         let installed = install_manager(&modpack_mod_path, install_mp_mods, HashMap::new()).await?;
+       
+        // Mod saved successfully, add it to the disabled mods so we know its installed
         
         debug!("Successfully installed {installed:#?}");
         
-        display_table(vec![command_output("Successfully installed Modpack: ".into(), modpack.mod_name)], None);
+        display_table(vec![command_output("Successfully installed Modpack:", modpack.mod_name)], None);
         elapsed_footer(start_time, "Modpack Install");
+        
+        return Ok(modpack_info.mod_id.clone());
     }
     
-    Ok(())
+    Err(RustiqueError::SimpleError("Unable to find installed modpack".into()))
 }

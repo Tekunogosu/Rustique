@@ -3,19 +3,23 @@ use std::fs;
 use zip::{ZipWriter, CompressionMethod};
 use std::fs::File;
 use std::io::Write;
-use std::path::PathBuf;
-use comfy_table::{Attribute, Color};
 use serde::{Deserialize, Serialize};
 use tracing::debug;
 use zip::write::SimpleFileOptions;
 use crate::aliases::{FileName, ModID, ModName};
 use crate::api::api_structs::ModInfo;
-use crate::information_utils::{command_output, display_table, notice, CellData};
+use crate::consts::{FILE_MODINFO_JSON, FILE_MODPACK_TOML};
+use crate::information_utils::{command_output, display_table};
 use crate::rustique_errors::RustiqueError;
 use crate::traits::ref_ext::PathRef;
 
+// This file is likely to not be used, but for now we will keep it in
+
+
+
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct ModPackToml {
+pub struct ModPackZip {
    
     #[serde(default)]
     pub modpack: ModPack,
@@ -23,7 +27,7 @@ pub struct ModPackToml {
     pub mods: HashMap<ModName,MPMods>,
 }
 
-impl ModPackToml {
+impl ModPackZip {
     /// Creates a ModInfo from the ModPackToml data
     pub fn gen_modinfo(&self) -> Result<ModInfo, RustiqueError> {
        
@@ -46,7 +50,7 @@ impl ModPackToml {
             mod_info.website = Some(website);
         }
         
-        mod_info.dependencies = Some(self.mods.values().map(|mp_mod| (mp_mod.mod_id.clone(), mp_mod.version.clone())).collect());
+        mod_info.dependencies = self.mods.values().map(|mp_mod| (mp_mod.mod_id.clone(), mp_mod.version.clone())).collect();
         
         debug!("{mod_info:#?}");
         
@@ -64,16 +68,17 @@ impl ModPackToml {
         let options = SimpleFileOptions::default()
             .compression_method(CompressionMethod::Deflated);
 
+        
         let toml_content = toml::to_string_pretty(self)
             .map_err(|e| RustiqueError::SimpleError(format!("Failed to make pretty modpack toml: {e}")))?;
-        self.add_file_to_zip(&mut zip, "modpack.toml", &toml_content, options).inspect_err(|_| {
+        self.add_file_to_zip(&mut zip, FILE_MODPACK_TOML, &toml_content, options).inspect_err(|_| {
             let _ = self.delete_zip(&zip_path);
         })?;
         
         
         let mod_info = serde_json::to_string_pretty(&self.gen_modinfo()?)
             .map_err(|e|RustiqueError::SimpleError(e.to_string()))?;
-        self.add_file_to_zip(&mut zip, "modinfo.json", &mod_info, options).inspect_err(|_| {
+        self.add_file_to_zip(&mut zip, FILE_MODINFO_JSON, &mod_info, options).inspect_err(|_| {
             let _ = self.delete_zip(&zip_path);
         })?;
         
@@ -88,7 +93,7 @@ impl ModPackToml {
         
         
         display_table(
-            vec![command_output("Your Modpack has been created and saved to".into(), zip_path.to_string_lossy().to_string())], 
+            vec![command_output("Your Modpack has been created and saved to", zip_path.to_string_lossy())], 
             None);
 
         Ok(())

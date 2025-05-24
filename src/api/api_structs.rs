@@ -85,7 +85,7 @@ pub struct ModInfo {
     #[serde(default, rename = "requiredOnServer", alias = "RequiredOnServer", alias = "RequiredonServer", alias = "Requiredonserver", alias = "requiredonserver")]
     pub required_on_server: Option<StringOrBool>,
     #[serde(default, alias = "Dependencies")]
-    pub dependencies: Option<HashMap<ModID, ModVersion>>,
+    pub dependencies: HashMap<ModID, ModVersion>,
 }
 
 // Used for endpoint /api/mods

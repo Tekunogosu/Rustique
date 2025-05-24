@@ -11,6 +11,8 @@ use std::collections::{HashMap};
 use std::path::{Path, PathBuf};
 use tracing::{error, info};
 use crate::config::config_manager::get_config;
+use crate::consts::FILE_MODINFO_JSON;
+use crate::traits::ref_ext::PathRef;
 use crate::traits::string_ext::StrLowerExt;
 
 // install & update both will obtain the info needed to fill this struct
@@ -41,10 +43,11 @@ pub struct Installed {
 
 
 pub async fn install_manager(
-    mod_dir: &Path,
+    mod_dir: impl PathRef,
     mods_requested: Vec<Install>,
     installed_mods: HashMap<ModID, ModSyncInfo>) -> Result<Vec<Installed>, RustiqueError> {
 
+    let mod_dir = mod_dir.as_ref(); 
     // this is the combined list of all mods installed, once download is completed, now mods will be
     // added here
     let mut total_mods_seen: HashMap<ModID, Installed> = HashMap::with_capacity(installed_mods.len());
@@ -112,10 +115,9 @@ pub async fn install_manager(
         let mut needed_dependencies: Vec<Install> = recently_installed.par_iter()
             .filter_map(|installed_mod| {
                 let path = installed_mod.installed_file_path.clone()?;
-                match extract_zip_metadata::<ModInfo>(&path, "modinfo.json") {
+                match extract_zip_metadata::<ModInfo>(&path, FILE_MODINFO_JSON) {
                     Ok(mod_info) =>  {
                         Some(mod_info.dependencies
-                            .unwrap_or_default()
                             .into_iter()
                             .filter(|(dep_id, _)|{
                                     !dep_id.lower_contains("game")

@@ -11,7 +11,7 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use tokio::sync::RwLock;
-use tracing::{debug, info};
+use tracing::{debug, enabled, info};
 use crate::config::config_structs::Tables;
 use crate::information_utils::{rustique_message, CellData, RustiqueMessage};
 use crate::traits::ref_ext::PathRef;
@@ -39,10 +39,9 @@ pub struct Config {
     pub notify_of_unzipped_mods: bool,
     
     pub game_download_dir: String,
-   
-   
-    // This directory is where the .zip files from the mod db are saved.
-    pub modpacks_dir: String,
+
+    #[serde(default)]
+    pub modpacks: ModPacks,
     
     
     #[serde(default)]
@@ -56,6 +55,27 @@ pub struct Config {
     pub table: Tables,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ModPacks {
+    #[serde(default)]
+    pub modpack_dir: String,
+    #[serde(default)]
+    pub enabled: Vec<String>,
+    #[serde(default)]
+    pub disabled: Vec<String>,
+}
+
+// Manually set the default since we need the default modpack_dir to be set to something specific
+// Otherwise its set to a blank string which will make modpacks installs fail.
+impl Default for ModPacks {
+    fn default() -> Self {
+        Self {
+            modpack_dir: Config::get_path().join("modpacks").to_string_lossy().to_string(),
+            enabled: vec![],
+            disabled: vec![],
+        }
+    }
+}
 
 #[derive(Deserialize, Serialize, Debug, Clone, Default)]
 pub struct Package {
@@ -88,6 +108,9 @@ impl Default for Config {
     fn default() -> Self {
         // let backup_mods_dir = get_expanded_path(PathBuf::from(CONFIG_DEFAULT_DIR).join("mod_backups"));
         let backup_mods_dir = Self::get_path().join("mod_backups");
+        let modpack_dir = Self::get_path().join("modpacks");
+        info!("modpack_dir {}", modpack_dir.display());
+
         Self {
             mod_dir: RustiqueOptions::default()
                 .mod_dir
@@ -105,7 +128,7 @@ impl Default for Config {
             sync_mod_search_file_every: 24,
             pkg: Vec::default(),
             table: Tables::with_defaults(),
-            modpacks_dir: Self::get_path().join("modpacks").to_string_lossy().to_string(),
+            modpacks: ModPacks::default()
         }
     }
 }
@@ -119,11 +142,7 @@ impl Config {
                 RustiqueError::ConfigFileError(format!("Failed to create config directory: {e}"))
             })?;
         }
-        
-        
-        // make sure the modpack_dir is setup early
-        Self::setup_modpack_dir()?;
-        
+
         let config_file_path = config_path.join("config.toml");
 
         if !config_file_path.exists() {
@@ -154,6 +173,9 @@ impl Config {
             return Ok(default_config);
         }
 
+        // make sure the modpack_dir is setup early
+        Self::setup_modpack_dir("modpacks")?;
+
         // if config exists load and parse it
         let mut file = File::open(&config_file_path).map_err(|e| {
             RustiqueError::ConfigFileError(format!("Failed to open config file: {e}"))
@@ -180,11 +202,11 @@ impl Config {
         }
     }
     
-    pub fn setup_modpack_dir() -> Result<(), RustiqueError> {
-        let modpack_dir = Self::get_path().join(&Config::default().modpacks_dir);
+    pub fn setup_modpack_dir(modpack_dir: impl PathRef) -> Result<(), RustiqueError> {
+        let modpack_dir = Self::get_path().join(modpack_dir);
         // create the modpack directory if it hasn't been created
         debug!("Checking if {} exists", modpack_dir.to_string_lossy());
-        if !Path::new(&modpack_dir).exists() {
+        if !&modpack_dir.exists() {
             info!("Created modpack directory");
 
             for dir in ["installed", "packs", "mypacks"] {
@@ -193,8 +215,9 @@ impl Config {
                 fs::create_dir_all(d)
                     .map_err(|e| RustiqueError::SimpleError(format!("Failed to create {}: {}", d.to_string_lossy(), e)))?;
             }
-        } 
-        
+        }
+
+
         Ok(())
     }
 

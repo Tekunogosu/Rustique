@@ -1,5 +1,5 @@
 use clap::{Args, Subcommand};
-
+use crate::commands::arg_structs::info_args::ModInfoArgs;
 
 #[derive(Args, Debug)]
 pub struct ModpackCommands {
@@ -43,7 +43,7 @@ pub enum ModpackSubCommands {
     List(MPListArgs),
     
     /// Displays a nice table showing informatio about the modpack, including descriptions of each mod.
-    Info(MPInfo)
+    Info(ModInfoArgs)
 }
 
 #[derive(Args, Debug, Clone)]
@@ -94,9 +94,8 @@ pub struct MPCreateArgs {
 pub struct MPInstallArgs {
     /// This is the ID from the mods website. This can either be the numerical ModID or the text version. Use `Rustique search -q modpackname` to get the numerical if you need
     pub mod_id: String,
+
     
-    /// This overrides the alias the mod author provides with one of your own. You'll be able to use this alias to modify the modpack once its installed.
-    pub alias: Option<String>,
 }
 
 
@@ -117,11 +116,19 @@ pub struct MPDisableArgs {
 
 #[derive(Args, Debug, Clone)]
 pub struct MPEnableArgs{
+    /// ID of the modpack to enable. See `Rustique modpack list` to get the correct modpack ID if you don't know it.
     pub mpk_id: String,
+    
+    /// --force allows you to enable multiple modpacks at once. NOTE: You may make your world unstable by having modpacks with conflicting mods. There is no way for Rustique to check this, you have been warned.
+    #[arg(short, long, default_value = "false")]
+    pub force: bool,
 }
 
 #[derive(Args, Debug, Clone)]
-pub struct MPListArgs {}
+pub struct MPListArgs {
+    #[arg(short, long, default_value = "false")]
+    pub show_only_updates: bool,
+}
 
 #[derive(Args, Debug, Clone)]
 pub struct MPInfo {}

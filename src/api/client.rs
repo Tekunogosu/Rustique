@@ -1,6 +1,7 @@
 use crate::aliases::{FileName, ModID, UrlString};
 use crate::api::api_structs::{GameVersions, Mod, Mods};
 use crate::rustique_errors::RustiqueError;
+use crate::consts::FILE_MODINFO_JSON;
 use owo_colors::OwoColorize;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
@@ -10,6 +11,7 @@ use tracing::{error, info};
 use std::fmt::Write;
 use clap::ValueEnum;
 use reqwest::Response;
+use crate::traits::ref_ext::StrRef;
 
 const API_BASE_URL: &str = "https://mods.vintagestory.at/api";
 const VS_CDN_STABLE_RELEASE: &str = "https://cdn.vintagestory.at/gamefiles/stable";
@@ -97,7 +99,8 @@ impl ApiClient {
             })
     }
 
-    pub async fn fetch_mod(&self, mod_id: &str) -> Result<Mod, RustiqueError> {
+    pub async fn fetch_mod(&self, mod_id: impl StrRef) -> Result<Mod, RustiqueError> {
+        let mod_id = mod_id.as_ref();
         if mod_id.is_empty() {
             error!("Mod id is empty {}", mod_id);
             return Err(RustiqueError::MalformedModInfoJson("The mod id received was empty.. unable to download whatever mod this is.".to_string()));
@@ -131,7 +134,7 @@ impl ApiClient {
             info!("ModID: {}", mod_id);
 
             if mod_id.is_empty() {
-                error!("\n\r\tModID is empty or missing mod_id. Please contact the author to correct their malformed modinfo.json.\n\r\tWithout the mod id, Rustique will be unable to manage this mod.");
+                error!("\n\r\tModID is empty or missing mod_id. Please contact the author to correct their malformed {FILE_MODINFO_JSON}.\n\r\tWithout the mod id, Rustique will be unable to manage this mod.");
                 continue;
             }
 
@@ -158,7 +161,7 @@ impl ApiClient {
         for task in tasks {
             // Handle any JoinError from the task itself
             if let Ok(Some((mod_id, the_mod))) = task.await {
-                results.insert(mod_id, the_mod);
+                results.insert(mod_id.into(), the_mod);
             }
         }
 
@@ -184,7 +187,7 @@ impl ApiClient {
         Ok(hash)
     }
 
-    pub async fn get_request(&self, mod_uri: &str) -> Result<reqwest::Response, RustiqueError> {
+    pub async fn get_request(&self, mod_uri: &str) -> Result<Response, RustiqueError> {
         self.agent.get(mod_uri)
             .send()
             .await
@@ -243,13 +246,6 @@ impl ApiClient {
         };
         
         Ok((cdn, download_str))
-        
-        // 
-        // self.agent
-        //     .get(&cdn)
-        //     .send()
-        //     .await
-        //     .map_err(|e| RustiqueError::SimpleError(format!("Failed to retrieve download from {}, {}", &cdn, e)))
     }
     
     pub async fn head(&self, uri: &str) -> Result<Response, RustiqueError> {

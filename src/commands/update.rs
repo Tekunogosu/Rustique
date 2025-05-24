@@ -1,5 +1,5 @@
 use crate::aliases::ModID;
-use crate::commands::sync::{ModSyncInfo, RustiqueSyncJson, SYNC_FILE_NAME};
+use crate::commands::sync::{ModSyncInfo, RustiqueSyncJson};
 use crate::install_manager::{install_manager, Install, Installed};
 use crate::rustique_errors::RustiqueError;
 use crate::utils::{delete_file, parse_json_file};
@@ -11,6 +11,7 @@ use std::process::exit;
 use std::time::Instant;
 use tracing::{debug, info};
 use crate::config::config_manager::get_config;
+use crate::consts::FILE_RUSTIQUE_SYNC;
 use crate::information_utils::{display_installation_results, elapsed_footer, notice};
 use crate::traits::ref_ext::PathRef;
 
@@ -19,20 +20,24 @@ pub async fn update_mods<V: AsRef<[ModID]>>(mod_dir: impl PathRef, update_mod_id
     let (mod_dir, update_mod_ids) = (mod_dir.as_ref(), update_mod_ids.as_ref());
     let start_time = Instant::now();
     let config = get_config().read().await;
-    let sync_data = parse_json_file::<RustiqueSyncJson>(&PathBuf::from(mod_dir).join(SYNC_FILE_NAME));
+    let sync_data = parse_json_file::<RustiqueSyncJson>(&PathBuf::from(mod_dir).join(FILE_RUSTIQUE_SYNC));
     
     if sync_data.is_ok() {
         notice("Updating mods...", Option::from(Color::Yellow), vec![Attribute::Bold]);
-        let sync_data = sync_data?;
+        // filter out anything that is a symlink. This means its a modpack file and we don't want to update. 
+        let sync_data = sync_data?.rustique_sync
+            .into_iter()// Consume and transform
+            .filter(|(_,sync_info)| !sync_info.is_symlink)
+            .collect();
         let mut mods_to_check_update: HashMap<ModID, ModSyncInfo> = HashMap::new();
         let mut updates_exist = false;
 
         if update_mod_ids.is_empty() {
-            mods_to_check_update.clone_from(&sync_data.rustique_sync);
+            mods_to_check_update.clone_from(&sync_data);
             updates_exist = true;
         } else {
             for typed_mod_id in update_mod_ids {
-                let mod_sync_data = &sync_data.rustique_sync;
+                let mod_sync_data = &sync_data;
                 // user typed in a valid typed_mod_id so violet is happy now
                 let typed_mod_id = typed_mod_id.to_lowercase();
                 if mod_sync_data.contains_key(&typed_mod_id) {
@@ -90,7 +95,6 @@ pub async fn update_mods<V: AsRef<[ModID]>>(mod_dir: impl PathRef, update_mod_id
             }
         }
 
-        // display our results
         display_installation_results(mods_processed);
 
     } else {

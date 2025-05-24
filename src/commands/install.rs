@@ -69,13 +69,13 @@ pub async fn install_missing_deps<V: AsRef<[ModID]>>(mod_dir: impl PathRef, mods
     // retrieve all dependencies
     // send missing ones to install_manager()
 
-    let installed_mods = extract_all_mods_metadata(mod_dir).await?;
+    let installed_mods = extract_all_mods_metadata(mod_dir, true).await?;
     let sync_data = get_sync_data(mod_dir).await?.rustique_sync.clone();
 
 
     // if there are reports of slowness is this section .values().par_bridge()...flat_map_iter() could be used to speed it up
     // this is prob not an issue even with a lot of mods as the data is all in memory at this point
-    let mut missing_deps: Vec<Install> = gather_missing_dependencies(&installed_mods, &mods_requested, &sync_data);
+    let mut missing_deps: Vec<Install> = gather_missing_dependencies(&installed_mods, mods_requested, &sync_data);
 
     let client = ApiClient::new();
 

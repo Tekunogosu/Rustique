@@ -5,27 +5,28 @@
 // only a few are required, so a minimal modpack can be created pretty easily
 
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use semver::Version;
 use tracing::warn;
 use crate::commands::arg_structs::modpack_args::MPCreateArgs;
 use crate::commands::search::parse_search_file;
-use crate::modpack::modpack_toml::{MPMods, ModPack, ModPackToml};
+use crate::modpack::modpack_zip::{MPMods, ModPack, ModPackZip};
 use crate::rustique_errors::RustiqueError;
 use crate::utils::{extract_all_mods_metadata, find_mod_id};
 use crate::version_management::parse_version;
 use owo_colors::OwoColorize;
 use crate::aliases::ModID;
 use crate::config::config_manager::get_config;
+use crate::consts::FILE_MODINFO_JSON;
 
 pub fn mp_create_interactive() -> Result<(), RustiqueError> {
     todo!();
     Ok(())
 }
 
-pub fn collect_mp_create_args(args: &MPCreateArgs) -> Result<ModPackToml, RustiqueError> {
+pub fn collect_mp_create_args(args: &MPCreateArgs) -> Result<ModPackZip, RustiqueError> {
 
-    Ok(ModPackToml {
+    Ok(ModPackZip {
         modpack: ModPack {
             name: args.name.clone(),
             mpk_id: args.mpk_id.clone(),
@@ -41,13 +42,13 @@ pub fn collect_mp_create_args(args: &MPCreateArgs) -> Result<ModPackToml, Rustiq
 }
 
 
-pub async fn mp_create<P: AsRef<Path>>(mod_dir: P, mod_pack: &mut ModPackToml) -> Result<(), RustiqueError> {
+pub async fn mp_create<P: AsRef<Path>>(mod_dir: P, mod_pack: &mut ModPackZip) -> Result<(), RustiqueError> {
     
     let config = get_config().read().await;
     
     let mods_search_data = parse_search_file().await?.mods;
     
-    let all_mods = extract_all_mods_metadata(mod_dir).await?;
+    let all_mods = extract_all_mods_metadata(mod_dir, false).await?;
     let mp_mods: HashMap<ModID, MPMods> = all_mods.iter().filter_map(|(mod_filename, mod_info)| {
         let mod_id = if mod_info.mod_id.is_empty() {
             find_mod_id(&mod_info.name, mod_filename, &mods_search_data).unwrap_or_default()
@@ -56,7 +57,8 @@ pub async fn mp_create<P: AsRef<Path>>(mod_dir: P, mod_pack: &mut ModPackToml) -
         };
         
         if mod_id.is_empty() {
-            warn!("{} {} {}","Mod".yellow(), mod_filename.magenta(), "was not included in this modpack because Rustique was unable to locate a valid modid. It was either omitted or the mod has a malformed modinfo.json file".yellow());
+            warn!("{} {} {} {} {}","Mod".yellow(), mod_filename.magenta(), 
+                "was not included in this modpack because Rustique was unable to locate a valid modid. It was either omitted or the mod has a malformed".yellow(), FILE_MODINFO_JSON.magenta(), "file".yellow());
             return None;
         }
         
@@ -72,7 +74,7 @@ pub async fn mp_create<P: AsRef<Path>>(mod_dir: P, mod_pack: &mut ModPackToml) -
     mod_pack.mods = mp_mods;
     
     // TODO: make flag for saving modpack to a different directory
-    let save_location = Path::new(&config.modpacks_dir).to_path_buf();
+    let save_location = Path::new(&config.modpacks.modpack_dir).to_path_buf();
     
     mod_pack.build_modpack(save_location, mod_pack.modpack.mpk_id.clone())?;
 

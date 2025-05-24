@@ -6,12 +6,13 @@ use owo_colors::OwoColorize;
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
 use comfy_table::presets::UTF8_FULL_CONDENSED;
 use comfy_table::{Cell, CellAlignment, ContentArrangement, Row, Table};
-use tracing::{debug, info, warn};
+use tracing::{debug, warn};
 use crate::api::api_structs::{ModApi, ModsSearchFile};
 use crate::commands::arg_structs::search_args::SearchArgs;
-use crate::commands::sync::{daily_file_syncs, game_version_sync};
+use crate::commands::sync::daily_file_syncs;
 use crate::config::config_manager::{get_config, Config};
 use crate::config::config_structs::SearchColumn;
+use crate::consts::FILE_MOD_SEARCH_SYNC;
 use crate::information_utils::prep_cell;
 use crate::rustique_errors::RustiqueError;
 use crate::traits::option_ext::OptionExt;
@@ -20,7 +21,7 @@ use crate::traits::vec_ext::VecStringExt;
 use crate::utils::{parse_json_file};
 
 
-pub const SEARCH_FILE_NAME: &str = "mod-search.json";
+
 
 impl Searchable for ModApi {
     fn matches_text(&self, query: &str) -> bool {
@@ -212,7 +213,7 @@ impl SearchQuery {
 }
 
 pub async fn parse_search_file() -> Result<ModsSearchFile, RustiqueError> {
-    let file_path = Config::get_path().join(SEARCH_FILE_NAME);
+    let file_path = Config::get_path().join(FILE_MOD_SEARCH_SYNC);
     if !file_path.exists() {
         warn!("{}","Running daily sync to build search table, this is normal!".green());
         daily_file_syncs(true).await?;

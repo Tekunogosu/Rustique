@@ -42,13 +42,13 @@ pub async fn download(args: &DownloadArgs) -> Result<(), RustiqueError> {
     }
 
     if !found {
-        notice(&format!("The version you provided [{user_version}] is not valid. The following are all valid versions.."), Some(Color::Red), vec![Attribute::Bold]);
-        notice(&format!("[{}]",game_versions.join("], [").as_str()), Some(Color::Magenta), vec![]);
+        notice(format!("The version you provided [{user_version}] is not valid. The following are all valid versions.."), Some(Color::Red), vec![Attribute::Bold]);
+        notice(format!("[{}]",game_versions.join("], [").as_str()), Some(Color::Magenta), vec![]);
         exit(1);
     }
 
 
-    notice(&format!("Downloading Vintage Story v{user_version}"), Some(Color::Yellow), vec![Attribute::Bold]);
+    notice(format!("Downloading Vintage Story v{user_version}"), Some(Color::Yellow), vec![Attribute::Bold]);
 
     let (url,filename) = client.download_uri(&args.os_type, &args.exe_type, &mirror_type, &user_version, Option::from(&args.windows_installer_type))?;
 
@@ -83,7 +83,7 @@ pub async fn download(args: &DownloadArgs) -> Result<(), RustiqueError> {
 
     pb.finish();
     
-    notice(&format!("Vintage Story has been saved to {download_dir}/{filename}"), Some(Color::Green), vec![Attribute::Bold]);
+    notice(format!("Vintage Story has been saved to {download_dir}/{filename}"), Some(Color::Green), vec![Attribute::Bold]);
     
     Ok(())
 }

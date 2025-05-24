@@ -7,9 +7,10 @@ use comfy_table::modifiers::UTF8_ROUND_CORNERS;
 use comfy_table::presets::{UTF8_FULL_CONDENSED};
 use tracing::{warn};
 use crate::config::config_table::config_table;
-use crate::commands::sync::{GameVersionSync, GAME_VERSION_SYNC_FILE_NAME};
+use crate::commands::sync::{GameVersionSync};
 use crate::config::config_manager::{get_config, Config, Package};
 use crate::config::config_structs::{CellAttr, CellColor};
+use crate::consts::FILE_GAME_VERSION_SYNC;
 use crate::information_utils::{command_output, display_table, notice, prep_cell, CellData};
 use crate::traits::string_ext::StrLowerExt;
 use crate::version_management::parse_version;
@@ -59,7 +60,7 @@ async fn set(args: &CommonArgs) {
 
     if let Some(version) = &args.pin_game_version {
 
-        let gv_sync_file = Config::get_path().join(GAME_VERSION_SYNC_FILE_NAME);
+        let gv_sync_file = Config::get_path().join(FILE_GAME_VERSION_SYNC);
         let mut game_versions = match parse_json_file::<GameVersionSync>(&gv_sync_file) {
             Ok(game_versions) => game_versions,
             Err(err) => {
@@ -181,37 +182,37 @@ async fn del(args: &BoolArgs) {
     if args.backup_mods_dir {
         config.backup_mods_dir.clone_from(&defaults.backup_mods_dir);
         save = true;
-        display_vec.push(command_output("config.backup_mods_dir".to_string(), defaults.backup_mods_dir.to_string()));
+        display_vec.push(command_output("config.backup_mods_dir", defaults.backup_mods_dir));
     }
 
     if args.zip_mod_dirs {
         config.zip_mod_files = defaults.zip_mod_files;
         save = true;
-        display_vec.push(command_output("config.zip_mod_files".to_string(), defaults.zip_mod_files.to_string()));
+        display_vec.push(command_output("config.zip_mod_files", defaults.zip_mod_files.to_string()));
     }
 
     if args.backup_mods {
         config.backup_mods = defaults.backup_mods;
         save = true;
-        display_vec.push(command_output("config.backup_mods".to_string(), defaults.backup_mods.to_string()));
+        display_vec.push(command_output("config.backup_mods", defaults.backup_mods.to_string()));
     }
 
     if args.pin_game_version {
         config.pinned_game_version.clone_from(&defaults.pinned_game_version);
         save = true;
-        display_vec.push(command_output("config.pinned_game_version".to_string(), defaults.pinned_game_version.to_string()));
+        display_vec.push(command_output("config.pinned_game_version", defaults.pinned_game_version));
     }
 
     if args.mod_dir {
         config.mod_dir.clone_from(&defaults.mod_dir);
         save = true;
-        display_vec.push(command_output("config.mod_dir".to_string(), defaults.mod_dir.to_string()));
+        display_vec.push(command_output("config.mod_dir", defaults.mod_dir));
     }
 
     if args.notify_of_unzipped_mods {
         config.notify_of_unzipped_mods = defaults.notify_of_unzipped_mods;
         save = true;
-        display_vec.push(command_output("config.notify_of_unzipped_mods".to_string(), config.notify_of_unzipped_mods.to_string()));
+        display_vec.push(command_output("config.notify_of_unzipped_mods", config.notify_of_unzipped_mods.to_string()));
     }
 
     if args.pinned_mod.is_some() {
@@ -223,14 +224,14 @@ async fn del(args: &BoolArgs) {
         if !config.pkg.is_empty() {
             config.pkg.retain(|p| p.mod_id != *mod_id);
             save = true;
-            display_vec.push(command_output("Removed pinned version from: ".to_string(), mod_id.to_string()));
+            display_vec.push(command_output("Removed pinned version from: ", mod_id));
         }
     }
     
     if args.game_download_dir {
         config.game_download_dir.clone_from(&defaults.game_download_dir);
         save = true;
-        display_vec.push(command_output("config.game_download_dir".into(), defaults.game_download_dir.to_string()));
+        display_vec.push(command_output("config.game_download_dir", defaults.game_download_dir));
     }
 
 
@@ -243,14 +244,14 @@ async fn del(args: &BoolArgs) {
 async fn list() {
     let config = get_config().read().await;
     let display_vec: Vec<(CellData, CellData)> = vec![
-        command_output("config.mod_dir".into(),                 config.mod_dir.to_string()),
-        command_output("config.backup_mods_dir".into(),         config.backup_mods_dir.to_string()),
-        command_output("config.game_download_dir".into(),       config.game_download_dir.to_string()),
-        command_output("config.backup_mods".into(),             config.backup_mods.to_string()),
-        command_output("config.zip_mod_files".into(),           config.zip_mod_files.to_string()),
-        command_output("config.show_execution_time".into(),     config.show_execution_time.to_string()),
-        command_output("config.notify_of_unzipped_mods".into(), config.notify_of_unzipped_mods.to_string()),
-        command_output("config.pinned_game_version".into(),     config.pinned_game_version.to_string()),
+        command_output("config.mod_dir",                 config.mod_dir.to_string()),
+        command_output("config.backup_mods_dir",         config.backup_mods_dir.to_string()),
+        command_output("config.game_download_dir",       config.game_download_dir.to_string()),
+        command_output("config.backup_mods",             config.backup_mods.to_string()),
+        command_output("config.zip_mod_files",           config.zip_mod_files.to_string()),
+        command_output("config.show_execution_time",     config.show_execution_time.to_string()),
+        command_output("config.notify_of_unzipped_mods", config.notify_of_unzipped_mods.to_string()),
+        command_output("config.pinned_game_version",     config.pinned_game_version.to_string()),
     ];
     
     display_table(display_vec, None);

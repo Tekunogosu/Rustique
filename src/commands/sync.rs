@@ -16,10 +16,11 @@ use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 use tracing::{debug, error, info, warn};
 use owo_colors::OwoColorize;
-use crate::commands::search::SEARCH_FILE_NAME;
 use crate::config::config_manager::{get_config, Config};
+use crate::consts::{FILE_GAME_VERSION_SYNC, FILE_MOD_SEARCH_SYNC, FILE_RUSTIQUE_SYNC};
 use crate::information_utils::{elapsed_footer, notice};
-use crate::traits::ref_ext::PathRef;
+use crate::modpack::symlink_manager::SymlinkManager;
+use crate::traits::ref_ext::{PathRef, StrRef};
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct RustiqueSyncJson {
@@ -57,6 +58,9 @@ pub struct ModSyncInfo {
     pub latest_known_version: ModVersion,
     pub latest_download_url: String,
     pub game_versions: Vec<String>,
+    
+    #[serde(default)]
+    pub is_symlink: bool
 }
 
 
@@ -88,16 +92,13 @@ pub async fn handle_sync_call(mod_dir: impl PathRef) {
     }
 }
 
-pub const SYNC_FILE_NAME: &str = "rustique-sync.json";
-pub const MODID_SYNC_FILE_NAME: &str = "mod-id-sync.json";
 
-pub const GAME_VERSION_SYNC_FILE_NAME: &str = "game-versions.json";
 
 // This contains all the data from the api/mods request. This is used to located mod_IDs
 // and for searching for new mods. This is synced once a day or manually
 pub async fn get_sync_data(mod_dir: impl PathRef) -> Result<RustiqueSyncJson, RustiqueError> {
     let mod_dir = mod_dir.as_ref();
-    let fp = mod_dir.join(PathBuf::from(SYNC_FILE_NAME));
+    let fp = mod_dir.join(PathBuf::from(FILE_RUSTIQUE_SYNC));
     if !fp.exists() {
         sync(mod_dir).await?;
     }
@@ -119,7 +120,7 @@ pub async fn sync(mod_dir: impl PathRef) -> Result<(), RustiqueError> {
     // check if rustique-sync.json exists
     // if so, parse the file for updating
     // if not, do all the sync process and then write a new file
-    let sync_file_path = mod_dir.join(SYNC_FILE_NAME);
+    let sync_file_path = mod_dir.join(FILE_RUSTIQUE_SYNC);
     debug!("sync file: {}", sync_file_path.display());
 
     let mut sync_data = if sync_file_path.exists() {
@@ -139,7 +140,7 @@ pub async fn sync(mod_dir: impl PathRef) -> Result<(), RustiqueError> {
 
     let config_path = Config::get_path();
 
-    let mods_search_file = config_path.join(SEARCH_FILE_NAME);
+    let mods_search_file = config_path.join(FILE_MOD_SEARCH_SYNC);
     let mods_search_data = match parse_json_file::<ModsSearchFile>(&mods_search_file) {
         Ok(json) => json,
         Err(e) => {
@@ -156,7 +157,7 @@ pub async fn sync(mod_dir: impl PathRef) -> Result<(), RustiqueError> {
         daily_file_syncs(true).await?;
     }
     
-    let game_version_sync_file = config_path.join(GAME_VERSION_SYNC_FILE_NAME);
+    let game_version_sync_file = config_path.join(FILE_GAME_VERSION_SYNC);
     let game_version_sync_data = match parse_json_file::<GameVersionSync>(&game_version_sync_file) {
         Ok(json) => json,
         Err(e) => {
@@ -172,12 +173,15 @@ pub async fn sync(mod_dir: impl PathRef) -> Result<(), RustiqueError> {
     }
      
 
-    let installed_mods = extract_all_mods_metadata(mod_dir).await?;
+    let installed_mods = extract_all_mods_metadata(mod_dir, false).await?;
 
     // clean sync data first so latest info takes priority
     sync_data.rustique_sync.clear();
 
     for (mod_filename, mod_info) in &installed_mods {
+        
+        // check if the file is a symlink
+        
         let version = if let Ok(parsed_version) = parse_version(&mod_info.version.clone().unwrap_or_default()) {
             parsed_version.to_string()
         } else {
@@ -203,7 +207,8 @@ pub async fn sync(mod_dir: impl PathRef) -> Result<(), RustiqueError> {
                 mod_name: mod_info.name.clone(),
                 latest_download_url: String::new(),
                 latest_known_version: String::new(),
-                game_versions: Vec::new()
+                game_versions: Vec::new(),
+                is_symlink: SymlinkManager::exists(mod_dir.join(mod_filename)),
             });
     }
 
@@ -238,9 +243,8 @@ pub async fn sync(mod_dir: impl PathRef) -> Result<(), RustiqueError> {
                 latest_known_version: mod_version,
                 latest_download_url: download_url,
                 mod_name: res_mod.mod_json.name.clone().unwrap_or_default(),
-                file_name: "None".to_string(),
-                installed_version: "None".to_string(),
-                game_versions
+                game_versions,
+                .. Default::default()
             });
     }
 
@@ -273,16 +277,9 @@ pub async fn daily_file_syncs(force: bool) -> Result<ModsSearchFile, RustiqueErr
 
     let config_dir = Config::get_path();
 
-    // This will be removed in 0.4.0
-    let mod_id_sync = config_dir.clone().join(MODID_SYNC_FILE_NAME);
-    if mod_id_sync.exists() {
-        delete_file(&mod_id_sync).await?;
-    }
-    /////////////////////////////////
-    
     // Sync game versions
 
-    let search_file = config_dir.join(SEARCH_FILE_NAME);
+    let search_file = config_dir.join(FILE_MOD_SEARCH_SYNC);
     info!("{} {}","Search file path:".green(), search_file.to_string_lossy().yellow());
 
     let mut file_data = if search_file.exists() {
@@ -333,7 +330,7 @@ pub async fn game_version_sync(force: bool) -> Result<GameVersionSync, RustiqueE
     let start_time = Instant::now();
     let config = get_config().read().await;
     
-    let file = Config::get_path().join(GAME_VERSION_SYNC_FILE_NAME);
+    let file = Config::get_path().join(FILE_GAME_VERSION_SYNC);
     info!("{} {}","Game version sync file path:".green(), file.to_string_lossy().yellow());
     // if the file doesn't exit, create it 
     // otherwise check if its time to do update
@@ -378,12 +375,12 @@ pub async fn game_version_sync(force: bool) -> Result<GameVersionSync, RustiqueE
     Ok(file_data)
 }
 
-pub fn prettify<T>(data: T, command_type: &str) -> Result<String, RustiqueError>
+pub fn prettify<T>(data: T, command_type: impl StrRef) -> Result<String, RustiqueError>
     where
     T: serde::Serialize {
 
     to_string_pretty(&data).map_err(|e| RustiqueError::JsonError {
-            context: format!("Failure while making the {command_type} json pretty"),
+            context: format!("Failure while making the {} json pretty", command_type.as_ref()),
             source: serde_json5::Error::from(std::io::Error::other(e)),
         })
 }

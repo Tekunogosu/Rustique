@@ -16,6 +16,7 @@ mod traits;
 mod information_utils;
 mod modpack;
 mod config;
+mod consts;
 
 use crate::cli_commands::{Cli, Commands, ShellType};
 use config::config::parse_config_args;
@@ -116,10 +117,10 @@ async fn async_main() {
                 
                 let versions: Vec<String> = sorted_versions.into_iter().filter(|v| v.lower_contains(filter_by)).collect();
                 
-               notice(&format!("[{}]",versions.join("], [").as_str()), Some(Color::Yellow), vec![]); 
+               notice(format!("[{}]",versions.join("], [").as_str()), Some(Color::Yellow), vec![]); 
                 
             } else {
-                match new_list(&mod_dir, args.updates).await {
+                match new_list(&mod_dir, args.updates, false).await {
                     Ok(()) => {
 
                     },
@@ -200,7 +201,7 @@ async fn async_main() {
                 error!("{}", e.to_string().red().bold());
             }
         },
-        Commands::ModPack(cmds) => {
+        Commands::Modpack(cmds) => {
            parse_modpack_commands(cmds, &mod_dir).await;
         }
        Commands::Misc{ .. }=> {},

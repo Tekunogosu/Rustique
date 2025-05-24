@@ -37,6 +37,8 @@ impl SymlinkManager {
         Ok(())
     }
     
+    
+    /// Checks if `path` is a symlink
     pub fn exists(path: impl PathRef) -> bool {
         path.as_ref().is_symlink()
     }

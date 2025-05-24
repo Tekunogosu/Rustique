@@ -74,7 +74,7 @@ pub fn parse_download_url_from_version<V: AsRef<[Releases]>>(releases: V, versio
                 .filter(|mv| *mv == &version)
                 .and_then(|_| release.main_file.clone())
         })
-        .ok_or_else(|| RustiqueError::SimpleError(format!("Version {} not found", version)))
+        .ok_or_else(|| RustiqueError::SimpleError(format!("Version {} not found. Use [Rustique info -m modid] for valid versions", version)))
 }
 
 

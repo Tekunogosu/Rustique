@@ -1,7 +1,7 @@
 use crate::config::config_manager::Config;
 use crate::aliases::{ModFileName, ModID};
 use crate::api::api_structs::{ModApi, ModInfo};
-use crate::commands::sync::{GameVersionSync, ModSyncInfo, GAME_VERSION_SYNC_FILE_NAME, SYNC_FILE_NAME};
+use crate::commands::sync::{GameVersionSync, ModSyncInfo};
 use crate::install_manager::Install;
 use crate::rustique_errors::RustiqueError;
 use chrono::{DateTime, Duration, NaiveDateTime, Utc};
@@ -18,6 +18,8 @@ use tokio::io::AsyncWriteExt;
 use tracing::{debug, error, info, warn};
 use zip::ZipArchive;
 use crate::config::config_manager::get_config;
+use crate::consts::{FILE_GAME_VERSION_SYNC, FILE_MODINFO_JSON, FILE_RUSTIQUE_SYNC};
+use crate::modpack::symlink_manager::SymlinkManager;
 use crate::traits::ref_ext::PathRef;
 use crate::traits::string_ext::StrLowerExt;
 
@@ -179,7 +181,8 @@ where T: for<'de> serde::Deserialize<'de>
     Ok(mod_info)
 }
 
-pub async fn extract_all_mods_metadata(mod_dir: impl PathRef) -> Result<HashMap<ModFileName, ModInfo>, RustiqueError> {
+/// 
+pub async fn extract_all_mods_metadata(mod_dir: impl PathRef, ignore_symlink: bool) -> Result<HashMap<ModFileName, ModInfo>, RustiqueError> {
     let mod_dir = mod_dir.as_ref();
     let dir = fs::read_dir(mod_dir)
         .map_err(|e| RustiqueError::IoError {
@@ -192,20 +195,21 @@ pub async fn extract_all_mods_metadata(mod_dir: impl PathRef) -> Result<HashMap<
     let config = get_config().read().await;
     
     // Use Rayon for CPU-bound tasks (zip processing is CPU-bound)
-    let results:Vec<(ModFileName, ModInfo)> = entries_vec.par_iter()
+    let results:Vec<(ModFileName, ModInfo)> = entries_vec
+        .par_iter()
+        // This is to ignore modpack mods when using normal rustique commands while a modpack is enabled
+        .filter(|e| !(ignore_symlink && SymlinkManager::exists(e.path())))
         .filter_map(|entry| {
             let filename = entry.file_name().to_string_lossy().to_string();
-            match extract_zip_metadata::<ModInfo>(&entry.path(), "modinfo.json") {
-                Ok(mod_info) => Some((filename, mod_info)),
-                Err(e) => {
-                     if matches!(e, RustiqueError::ModNotZipped(_)) && config.notify_of_unzipped_mods {
+            extract_zip_metadata::<ModInfo>(&entry.path(), FILE_MODINFO_JSON)
+                .map(|mod_info| (filename, mod_info))
+                .inspect_err(|e| {
+                    if matches!(e, RustiqueError::ModNotZipped(_)) && config.notify_of_unzipped_mods { 
                         println!("{}",e.to_string().yellow());
                     } else {
                         debug!("{}", e.to_string().yellow());
-                    }
-                    None
-                }
-            }
+                    } 
+                }).ok()
         }).collect();
 
       Ok(results.into_iter().collect())
@@ -278,24 +282,24 @@ pub fn gather_missing_dependencies<V: AsRef<[ModID]>>(installed_mods: &HashMap<M
         .values()
         .filter(|mod_info| mods_requested.is_empty() || mods_requested.contains(&mod_info.mod_id))
         .flat_map(|mod_info| {
-            mod_info.dependencies.as_ref()
-                .map(|hm| hm.iter()
-                    .filter_map(|(mod_id, version)|
-                        if !mod_id.contains("game")
-                            && !mod_id.contains("survival")
-                            && !mod_id.contains("creative")
-                            && !id_vec.contains(mod_id) {
-                            Some(Install {
-                                mod_id: mod_id.clone(),
-                                mod_name: String::new(),
-                                version_to_install: version.clone(),
-                                download_url: String::new(),
-                                current_file_path: None,
-                            })
-                        } else {
-                            None
-                        }).collect::<Vec<_>>()
-                ).unwrap_or_default()
+            mod_info.dependencies.iter()
+                .filter_map(|(mod_id, version)|
+                    if !mod_id.contains("game")
+                        && !mod_id.contains("survival")
+                        && !mod_id.contains("creative")
+                        && !id_vec.contains(mod_id) {
+                        Some(Install {
+                            mod_id: mod_id.clone(),
+                            mod_name: String::new(),
+                            version_to_install: version.clone(),
+                            download_url: String::new(),
+                            current_file_path: None,
+                        })
+                    } else {
+                        None
+                    }
+                )
+                .collect::<Vec<_>>()
                 .into_iter()
         }).collect()
 }
@@ -321,7 +325,7 @@ where
 
     let json = serde_json5::from_str::<T>(&file_contents)
         .map_err(|e| {
-            let sync_error = if file_path.file_name().unwrap().to_string_lossy().eq(SYNC_FILE_NAME) {
+            let sync_error = if file_path.file_name().unwrap().to_string_lossy().eq(FILE_RUSTIQUE_SYNC) {
                 format!("{} {} {}", "(Run".yellow(), "Rustique sync".blue(), "to repopulate the sync file and resolve this message)".yellow())
             } else {
                 String::new()
@@ -355,7 +359,7 @@ pub fn latest_stable() -> String {
     // this function is called during the process in which clap creates the cli args,
     // if the file doesn't exist, the program exits immediately
     // this file will be created the first time sync is executed
-    if !Config::get_path().join(GAME_VERSION_SYNC_FILE_NAME).exists() {
+    if !Config::get_path().join(FILE_GAME_VERSION_SYNC).exists() {
         return "0.0.0".into()
     }
     
@@ -368,7 +372,7 @@ pub fn latest_stable() -> String {
 }
 
 pub fn sorted_game_versions() -> Vec<String> {
-    let version_file_path = Config::get_path().join(GAME_VERSION_SYNC_FILE_NAME);
+    let version_file_path = Config::get_path().join(FILE_GAME_VERSION_SYNC);
 
     let mut versions = if version_file_path.exists() {
         match parse_json_file::<GameVersionSync>(&version_file_path) {

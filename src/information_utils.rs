@@ -5,6 +5,7 @@ use comfy_table::modifiers::UTF8_ROUND_CORNERS;
 use comfy_table::presets::{UTF8_BORDERS_ONLY, UTF8_FULL_CONDENSED};
 use crate::config::config_structs::{CellAttr, CellColor};
 use crate::install_manager::Installed;
+use crate::traits::ref_ext::StrRef;
 
 pub struct RustiqueMessage {
     pub header: Option<CellData>,
@@ -56,14 +57,14 @@ pub fn rustique_message(rustique_message: RustiqueMessage) {
     println!("{table}");
 }
 
-pub fn notice(message: &str, fg_color: Option<Color>, attributes: Vec<Attribute>) {
+pub fn notice(message: impl StrRef, fg_color: Option<Color>, attributes: Vec<Attribute>) {
     let mut table = Table::new();
     table
         .load_preset(UTF8_BORDERS_ONLY)
         .apply_modifier(UTF8_ROUND_CORNERS)
         .set_content_arrangement(Dynamic);
 
-    let mut cell = Cell::new(message);
+    let mut cell = Cell::new(message.as_ref());
 
     if let Some(color) = fg_color {
         cell = cell.fg(color);
@@ -82,8 +83,8 @@ pub fn notice(message: &str, fg_color: Option<Color>, attributes: Vec<Attribute>
     println!("{table}");
 }
 
-pub fn prep_cell(text: &str, color: Option<CellColor>, attribute: Option<CellAttr>, delimiter: Option<char>, alignment: Option<CellAlignment>) -> Cell {
-    let mut cell = Cell::from(text);
+pub fn prep_cell(text: impl StrRef, color: Option<CellColor>, attribute: Option<CellAttr>, delimiter: Option<char>, alignment: Option<CellAlignment>) -> Cell {
+    let mut cell = Cell::from(text.as_ref());
 
     if color.is_some() {
         cell = cell.fg(Color::from(color.unwrap_or(CellColor::Reset)));
@@ -159,10 +160,10 @@ pub fn construct_cell(dt: CellData) -> Cell {
 
     cell
 }
-pub fn command_output(option: String, val: String) -> (CellData, CellData) {
+pub fn command_output(option: impl StrRef, val: impl StrRef) -> (CellData, CellData) {
     (
-        CellData::new(option, Some(Color::Yellow), vec![Attribute::Bold], None),
-        CellData::new(val, Some(Color::Magenta), vec![Attribute::Bold], None),
+        CellData::new(option.as_ref().into(), Some(Color::Yellow), vec![Attribute::Bold], None),
+        CellData::new(val.as_ref().into(), Some(Color::Magenta), vec![Attribute::Bold], None),
     )
 }
 
@@ -204,7 +205,7 @@ impl CellData {
     }
 }
 
-pub fn elapsed_footer(start_time: Instant, operation: &str) {
+pub fn elapsed_footer(start_time: Instant, operation: impl StrRef + std::fmt::Display) {
     let mut table = Table::new();
     table
         .load_preset(UTF8_BORDERS_ONLY)
