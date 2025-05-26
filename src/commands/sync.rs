@@ -4,23 +4,21 @@ use crate::api::client::{ApiClient};
 use crate::rustique_errors::RustiqueError;
 use crate::utils::{extract_all_mods_metadata, find_mod_id, get_current_time, parse_json_file, timestamp_older_than, write_json_file};
 use crate::version_management::{parse_latest_version, parse_pinned_version, parse_version};
-use comfy_table::Attribute;
+use comfy_table::{Attribute, Color};
 use serde::{Deserialize, Serialize};
 use serde_json::to_string_pretty;
 use std::collections::HashMap;
 use std::default::Default;
 use std::path::PathBuf;
-use std::pin::pin;
-use std::process::exit;
 use std::time::{Instant};
-use owo_colors::colors::Magenta;
+use comfy_table::presets::UTF8_HORIZONTAL_ONLY;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
 use owo_colors::OwoColorize;
 use crate::config::config_manager::{get_config, Config, Package};
 use crate::consts::{FILE_GAME_VERSION_SYNC, FILE_MOD_SEARCH_SYNC, FILE_RUSTIQUE_SYNC};
-use crate::information_utils::{elapsed_footer, notice};
+use crate::information_utils::{display_table, elapsed_footer, notice, CellData};
 use crate::modpack::symlink_manager::SymlinkManager;
 use crate::traits::ref_ext::{PathRef, StrRef};
 
@@ -106,7 +104,11 @@ pub async fn sync<V: AsRef<[Package]>>(mod_dir: impl PathRef, quiet: bool, pin_v
     daily_file_syncs(false).await?;
     game_version_sync(false).await?;
 
-    notice(format!("Syncing {}...", mod_dir.display().fg::<Magenta>()), Option::from(comfy_table::Color::Yellow), vec![Attribute::Bold]);
+    // notice(format!("Syncing {}...", mod_dir.display().fg::<Magenta>()), Option::from(comfy_table::Color::Yellow), vec![Attribute::Bold]);
+    display_table(vec![(
+        CellData::new("Syncing...".into(), Some(Color::Yellow), vec![Attribute::Bold], None),
+        CellData::new(mod_dir.to_string_lossy().to_string(), Some(Color::Magenta), vec![], None)
+    )], Some(UTF8_HORIZONTAL_ONLY));
     
 
     // check if rustique-sync.json exists
@@ -298,7 +300,7 @@ pub async fn daily_file_syncs(force: bool) -> Result<ModsSearchFile, RustiqueErr
 
     if file_data.mods.is_empty() || force || timestamp_older_than(sync_time, &file_data.last_sync){
 
-        notice("Daily Search Sync...", Some(comfy_table::Color::Yellow), vec![Attribute::Bold]);
+        notice("Daily Search Sync...", Some(Color::Yellow), vec![Attribute::Bold]);
 
         let client = ApiClient::new();
         // get all mod info

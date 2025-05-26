@@ -60,7 +60,7 @@ pub fn rustique_message(rustique_message: RustiqueMessage) {
 pub fn notice(message: impl StrRef, fg_color: Option<Color>, attributes: Vec<Attribute>) {
     let mut table = Table::new();
     table
-        .load_preset(UTF8_BORDERS_ONLY)
+        .load_preset(UTF8_HORIZONTAL_ONLY)
         .apply_modifier(UTF8_ROUND_CORNERS)
         .set_content_arrangement(Dynamic);
 

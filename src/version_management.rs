@@ -4,6 +4,7 @@ use crate::rustique_errors::RustiqueError;
 use semver::{Version};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+use owo_colors::OwoColorize;
 use tracing::{debug, error, info};
 use crate::config::config_manager::Package;
 use crate::traits::ref_ext::StrRef;
@@ -59,7 +60,7 @@ pub fn parse_latest_version(releases: &[Releases]) -> PinnedVersionInfo {
 
     if !errors.is_empty() {
         for error in &errors {
-            info!("{}", error.to_string());
+            info!("parse_latest_version: {}", error.to_string());
         }
     }
 
@@ -127,7 +128,7 @@ pub fn parse_pinned_version(releases: &Vec<Releases>, mod_pkg: &Package, pinned_
                     std::cmp::Ordering::Greater => false,
                 }
                 Err(e) => {
-                    error!("{e}");
+                    info!("{} {}", "parse_pinned_version-mres:".bright_yellow(), e.red().bold());
                     false
                 },
             }
@@ -140,7 +141,7 @@ pub fn parse_pinned_version(releases: &Vec<Releases>, mod_pkg: &Package, pinned_
         match parse_version(r.mod_version.as_ref().unwrap()) {
             Ok(v) => Some((v, r.main_file.clone(), r.tags.clone())),
             Err(e) => {
-                error!("{e}");
+                info!("{} {}","parse_pinned_version-final_res:".bright_yellow(), e.red().bold());
                 None
             }
         }

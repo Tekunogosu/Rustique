@@ -5,6 +5,7 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+use std::process::exit;
 use std::time::Instant;
 use comfy_table::{Attribute, Color};
 use owo_colors::OwoColorize;
@@ -16,12 +17,19 @@ use crate::api::download::download_requested_mods;
 use crate::commands::sync::sync;
 use crate::config::config_manager::{get_config, Package};
 use crate::consts::FILE_MODINFO_JSON;
-use crate::handle_sync_call;
 use crate::information_utils::{command_output, display_table, elapsed_footer, notice};
 use crate::install_manager::{install_manager, Install};
 use crate::rustique_errors::RustiqueError;
 use crate::utils::extract_zip_metadata;
 use crate::version_management::{parse_download_url_from_version, parse_latest_version, parse_pinned_version};
+
+
+pub fn check_if_mp_enabled(mp_id: &ModID, array: &Vec<String>) {
+    if array.contains(mp_id) {
+        notice(format!("{} {}", mp_id, "is currently enabled!. Disable it first then try again. "), Some(Color::Yellow), vec![]);
+        exit(1);
+    }
+}
 
 pub async fn mp_install(mp_id: ModID, mp_version: Option<ModVersion>) -> Result<String, RustiqueError> {
     let start_time = Instant::now();
@@ -30,7 +38,9 @@ pub async fn mp_install(mp_id: ModID, mp_version: Option<ModVersion>) -> Result<
     // Once the modpack is installed, it will download all the mods associated with the modpack  
     // to the location [modpacks/installed/modpack_id/*] 
     let config = get_config().read().await;
-   
+    
+    check_if_mp_enabled(&mp_id, &config.modpacks.enabled);
+        
     let client = ApiClient::new();
     
     let mod_info = client.fetch_mod(&mp_id).await?;
@@ -69,6 +79,11 @@ pub async fn mp_install(mp_id: ModID, mp_version: Option<ModVersion>) -> Result<
         let modpack_info = extract_zip_metadata::<ModInfo>(&modpack_packs_path, FILE_MODINFO_JSON).inspect_err(|_| {
             notice(format!("The requested modpack has a malformed {FILE_MODINFO_JSON} file and Rustique is unable to parse it."), Some(Color::Red), vec![Attribute::Bold]);
         })?;
+        
+        // do another check if the IDs are different, user might have installed using the numerical ID
+        if !modpack_info.mod_id.eq_ignore_ascii_case(&mp_id) {
+            check_if_mp_enabled(&modpack_info.mod_id, &config.modpacks.enabled);
+        }
 
         // The modpack is installed to the correct place, install all dependencies
         let modpack_mod_path = installed_dir.join(&modpack_info.mod_id);

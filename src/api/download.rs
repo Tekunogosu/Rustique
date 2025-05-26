@@ -68,7 +68,7 @@ pub async fn download_requested_mods(mod_dir: &Path, mods_requested: &mut Vec<In
 
 
 async fn download_mod(mod_dir: &Path, download_url: String, api_client: &ApiClient) -> Result<PathBuf, RustiqueError> {
-    let filename_from_api = &download_url.split('=').next_back().unwrap();
+    let filename_from_api = &download_url.split('=').next_back().unwrap_or_default();
 
     // Replace any spaces in the downloaded file with _ . This makes it easier to process later
     let filename_fix = mod_dir.to_path_buf().join(filename_from_api).to_string_lossy().replace(' ', "_");

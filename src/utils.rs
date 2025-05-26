@@ -311,7 +311,7 @@ where
     T: for<'de> serde::Deserialize<'de>
 {
     let file_path = file_path.as_ref();
-    let filename = file_path.file_name().unwrap().to_string_lossy().to_string();
+    let filename = file_path.file_name().unwrap_or_default().to_string_lossy().to_string();
 
     let mut file = File::open(file_path).map_err(|e| RustiqueError::IoError {
         context: format!("Unable to open {filename}"),
@@ -326,7 +326,7 @@ where
 
     let json = serde_json5::from_str::<T>(&file_contents)
         .map_err(|e| {
-            let sync_error = if file_path.file_name().unwrap().to_string_lossy().eq(FILE_RUSTIQUE_SYNC) {
+            let sync_error = if filename.eq(FILE_RUSTIQUE_SYNC) {
                 format!("{} {} {}", "(Run".yellow(), "Rustique sync".blue(), "to repopulate the sync file and resolve this message)".yellow())
             } else {
                 String::new()

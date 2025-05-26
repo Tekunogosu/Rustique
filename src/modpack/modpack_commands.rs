@@ -1,4 +1,5 @@
 use std::path::Path;
+use std::process::exit;
 use comfy_table::{Attribute, Color};
 use tracing::{error, info};
 use owo_colors::OwoColorize;
@@ -17,8 +18,14 @@ use crate::traits::ref_ext::PathRef;
 pub async fn parse_modpack_commands(commands: &ModpackCommands, mod_dir: impl PathRef) {
     match &commands.subcommand {
         ModpackSubCommands::Create(args) => {
-            let parse_args = collect_mp_create_args(args);
-            match mp_create(mod_dir, &mut parse_args.unwrap()).await {
+            let mut parse_args = match collect_mp_create_args(args) {
+                Ok(m) => {m}
+                Err(e) => {
+                    error!("Failed collecting modpack commands.. {}", e.to_string());
+                    exit(1);
+                }
+            };
+            match mp_create(mod_dir, &mut parse_args, args.save_path.clone()).await {
                 Ok(_) => {},
                 Err(e) => {
                     error!("{}", e.to_string().red().bold());
@@ -65,7 +72,7 @@ pub async fn parse_modpack_commands(commands: &ModpackCommands, mod_dir: impl Pa
                     }
                 }
                 Err(e) => {
-                    error!("Failed to enable modpack.. :{}", e.to_string().red().bold());
+                    info!("Failed to enable modpack.. :{}", e.to_string().red().bold());
                 }
             }
         }
@@ -106,13 +113,6 @@ pub async fn parse_modpack_commands(commands: &ModpackCommands, mod_dir: impl Pa
                     error!("{}", e.to_string().red().bold());
                 }
             }
-            // let config = get_config().read().await;
-            // match update_mods(Path::new(&config.modpacks.modpack_dir).join("packs"), vec![args.mpk_id.clone()], false).await {
-            //     Ok(()) => {}
-            //     Err(e) => {
-            //         error!("{}", e.to_string().red().bold());
-            //     }
-            // }
         }
         ModpackSubCommands::Info(args) => {
             match info(args).await {

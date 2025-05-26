@@ -119,6 +119,7 @@ pub async fn info(args: &ModInfoArgs) -> Result<(), RustiqueError> {
     let mut versions_table = table.clone();
     versions_table.set_header(Row::from(vec![
         prep_cell("Version", Some(CellColor::Green), Some(CellAttr::Bold), None, None),
+        prep_cell("Game Versions", Some(CellColor::Green), Some(CellAttr::Bold), None, None),
         prep_cell("Changelog", Some(CellColor::Green), Some(CellAttr::Bold), None, Some(CellAlignment::Center)),
     ]));
 
@@ -132,6 +133,7 @@ pub async fn info(args: &ModInfoArgs) -> Result<(), RustiqueError> {
    
     for (index, mv) in rels.iter().enumerate() {
         let version = &mv.mod_version.clone().unwrap_or(String::new()).to_string();
+        let game_versions = &mv.tags.clone().join(",");
         let changelog = html2text::from_read(&mut mv.changelog.clone().unwrap_or(String::new()).as_bytes(), 100).map_err(|_| RustiqueError::SimpleError("html2txt failed".to_string()))?;
         
         
@@ -143,6 +145,7 @@ pub async fn info(args: &ModInfoArgs) -> Result<(), RustiqueError> {
         
         vt_rows.push(Row::from(vec![
             prep_cell(version, Some(CellColor::Magenta), None, None, None),
+            prep_cell(game_versions, Some(CellColor::Yellow), None, Some(','), None),
             prep_cell(&changelog, Some(cell_color), None, None, None),
         ]));
     }

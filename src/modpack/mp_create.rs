@@ -10,46 +10,48 @@ use semver::Version;
 use tracing::warn;
 use crate::commands::arg_structs::modpack_args::MPCreateArgs;
 use crate::commands::search::parse_search_file;
-use crate::modpack::modpack_zip::{MPMods, ModPack, ModPackZip};
 use crate::rustique_errors::RustiqueError;
 use crate::utils::{extract_all_mods_metadata, find_mod_id};
 use crate::version_management::parse_version;
 use owo_colors::OwoColorize;
-use crate::aliases::ModID;
+use crate::aliases::{ModID, ModVersion};
+use crate::api::api_structs::{ModInfo, StringOrInt};
 use crate::config::config_manager::get_config;
 use crate::consts::FILE_MODINFO_JSON;
-
+use crate::traits::ref_ext::PathRef;
 // pub fn mp_create_interactive() -> Result<(), RustiqueError> {
 //     todo!();
 //     // Ok(())
 // }
 
-pub fn collect_mp_create_args(args: &MPCreateArgs) -> Result<ModPackZip, RustiqueError> {
-
-    Ok(ModPackZip {
-        modpack: ModPack {
-            name: args.name.clone(),
-            mpk_id: args.mpk_id.clone(),
-            version: args.mpk_version.clone(),
-            game_version: args.game_version.clone(),
-            description: args.description.clone(),
-            author: args.author.clone(),
-            contact: args.contact.clone(),
-            website: args.website.clone(),
-        },
-        mods: HashMap::new(),
+pub fn collect_mp_create_args(args: &MPCreateArgs) -> Result<ModInfo, RustiqueError> {
+    Ok(ModInfo {
+        name: args.name.clone(),
+        mod_type: StringOrInt::default(),
+        mod_id: args.mpk_id.clone(),
+        version: Some(args.mpk_version.clone()),
+        network_version: None,
+        texture_size: None,
+        description: args.description.clone(),
+        website: args.website.clone(),
+        authors: vec![args.author.clone().unwrap_or_default()],
+        contributors: vec![],
+        side: None,
+        required_on_client: None,
+        required_on_server: None,
+        dependencies: HashMap::default(),
     })
 }
 
 
-pub async fn mp_create<P: AsRef<Path>>(mod_dir: P, mod_pack: &mut ModPackZip) -> Result<(), RustiqueError> {
+pub async fn mp_create<P: AsRef<Path>>(mod_dir: P, mod_pack: &mut ModInfo, save_location: Option<impl PathRef>) -> Result<(), RustiqueError> {
     
     let config = get_config().read().await;
     
     let mods_search_data = parse_search_file().await?.mods;
     
     let all_mods = extract_all_mods_metadata(mod_dir, false).await?;
-    let mp_mods: HashMap<ModID, MPMods> = all_mods.iter().filter_map(|(mod_filename, mod_info)| {
+    let mp_mods: HashMap<ModID, ModVersion> = all_mods.iter().filter_map(|(mod_filename, mod_info)| {
         let mod_id = if mod_info.mod_id.is_empty() {
             find_mod_id(&mod_info.name, mod_filename, &mods_search_data).unwrap_or_default()
         } else {
@@ -65,19 +67,19 @@ pub async fn mp_create<P: AsRef<Path>>(mod_dir: P, mod_pack: &mut ModPackZip) ->
         let version = parse_version(&mod_info.version.clone().unwrap_or("0.0.0".into()))
             .unwrap_or(Version::new(0,0,0));
         
-        Some((mod_info.name.clone(),MPMods {
-            mod_id,
-            version: version.to_string()
-        }))
+        Some((mod_id, version.to_string()))
     }).collect();
 
-    mod_pack.mods = mp_mods;
+    mod_pack.dependencies = mp_mods;
     
     // TODO: make flag for saving modpack to a different directory
-    let save_location = Path::new(&config.modpacks.modpack_dir).to_path_buf();
+    let save_location = if let Some(save_path) = save_location {
+        Path::new(save_path.as_ref()).to_path_buf()
+    } else {
+        Path::new(&config.modpacks.modpack_dir).join("mypacks")
+    };
     
-    mod_pack.build_modpack(save_location, mod_pack.modpack.mpk_id.clone())?;
-
-
+    mod_pack.build_modpack(save_location, mod_pack.mod_id.clone())?;
+    
     Ok(())
 }

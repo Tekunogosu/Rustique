@@ -16,7 +16,7 @@ use crate::traits::ref_ext::PathRef;
 use crate::traits::string_ext::StrLowerExt;
 
 // install & update both will obtain the info needed to fill this struct
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Install {
     pub mod_id: ModID,
     pub mod_name: ModName,
@@ -40,6 +40,24 @@ pub struct Installed {
     pub success: bool,
 }
 
+impl Default for Installed {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Installed {
+    pub fn new() -> Self {
+        Self {
+            mod_id: "".to_string(),
+            mod_name: "".to_string(),
+            installed_file_path: None,
+            old_file_path: None,
+            install_version: "".to_string(),
+            success: false,
+        }
+    }
+}
 
 
 pub async fn install_manager(

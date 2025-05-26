@@ -1,16 +1,8 @@
 
-
-
-// Update will check the api for a new update for the mod pack
-// download the file and see if any new mods have been added or mod versions have changed
-// it'll collect all the mods needed for update/install and call the normal update method with
-// pinned versions if versions are set
-
 use std::path::Path;
 use comfy_table::Color;
 use tracing::{debug, error, info};
 use owo_colors::OwoColorize;
-use crate::aliases::ModVersion;
 use crate::api::api_structs::ModInfo;
 use crate::api::client::ApiClient;
 use crate::api::download::download_requested_mods;
@@ -20,13 +12,19 @@ use crate::commands::update::update_mods;
 use crate::config::config_manager::{get_config, Package};
 use crate::consts::{FILE_MODINFO_JSON, FILE_RUSTIQUE_SYNC};
 use crate::information_utils::notice;
-use crate::install_manager::Install;
+use crate::install_manager::{Install};
+use crate::modpack::mp_install::check_if_mp_enabled;
 use crate::rustique_errors::RustiqueError;
-use crate::utils::{delete_file, extract_zip_metadata, parse_json_file, remove_older_files};
+use crate::utils::{delete_file, extract_zip_metadata, parse_json_file};
 
 pub async fn mp_update(args: MPUpdateArgs) -> Result<(), RustiqueError> {
 
     let config = get_config().read().await;
+   
+    // Make sure the modpack isn't enabled or we'll have orphaned symlinks
+    check_if_mp_enabled(&args.mpk_id, &config.modpacks.enabled);
+    
+    
     let modpack_base_dir = Path::new(&config.modpacks.modpack_dir);
     let pack_dir = modpack_base_dir.join("packs");
     // first check if the sync file in the modpack dir exists, if not, run sync on this location

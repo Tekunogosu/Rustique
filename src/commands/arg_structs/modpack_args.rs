@@ -87,6 +87,9 @@ pub struct MPCreateArgs {
     #[arg(short, long)]
     pub website: Option<String>,
     
+    /// *Optional* Location to save modpack, default is ~/.config/rustique/modpacks/mypacks
+    #[arg(short, long, value_name = "PATH")]
+    pub save_path: Option<String>,
 }
 
 

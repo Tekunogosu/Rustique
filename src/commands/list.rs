@@ -1,8 +1,10 @@
+use std::collections::HashMap;
+use std::path::Path;
 use crate::aliases::{ModFileName, ModID};
 use crate::api::api_structs::{ModInfo};
-use crate::commands::sync::{get_sync_data, ModSyncInfo};
+use crate::commands::sync::{get_sync_data, ModSyncInfo, RustiqueSyncJson};
 use crate::rustique_errors::RustiqueError;
-use crate::utils::{extract_all_mods_metadata, gather_dependencies, gather_missing_dependencies, sanitize_string};
+use crate::utils::{extract_all_mods_metadata, gather_dependencies, gather_missing_dependencies, parse_json_file, sanitize_string};
 use crate::version_management::parse_version;
 use owo_colors::OwoColorize;
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
@@ -13,6 +15,7 @@ use std::time::Instant;
 use tracing::debug;
 use crate::config::config_manager::get_config;
 use crate::config::config_structs::{CellAttr, CellColor, ListColumn};
+use crate::consts::FILE_RUSTIQUE_SYNC;
 use crate::information_utils::prep_cell;
 use crate::install_manager::Install;
 use crate::traits::ref_ext::PathRef;
@@ -82,6 +85,17 @@ pub async fn new_list(mod_dir: impl PathRef, only_updated: bool, modpack_call: b
     let all_deps = gather_dependencies(&installed_mods);
     
     let missing_deps = gather_missing_dependencies(&installed_mods, &[], &sync_data.rustique_sync);
+   
+    
+    let mut enabled_modpacks: HashMap<ModID, Vec<ModID>> = config.modpacks.enabled.iter().map(|m| (m.clone(), Vec::new())).collect();
+    
+    for (mid, v) in &mut enabled_modpacks {
+        let mpath = Path::new(&config.modpacks.modpack_dir).join("installed").join(mid);
+        if mpath.exists() {
+            let mp_sync_file = parse_json_file::<RustiqueSyncJson>(&mpath.join(FILE_RUSTIQUE_SYNC))?;
+            v.extend(mp_sync_file.rustique_sync.into_keys());
+        }
+    }
     
 
     // iterate over all_modinfo and fill the table with what is needed
@@ -119,21 +133,36 @@ pub async fn new_list(mod_dir: impl PathRef, only_updated: bool, modpack_call: b
 
                     },
                     Ok(ListColumn::ModId) => {
-                        let txt = if !mod_info.mod_id.is_empty() {
+                        
+                        let (mut txt, mut the_color) = (String::new(), color);
+                        
+                        let mid = if !mod_info.mod_id.is_empty() {
                             mod_info.mod_id.clone()
                         } else if !mod_sync_id.is_empty() {
                             mod_sync_id.clone()
                         } else {
                             String::from("UNKNOWN")
                         };
-                        Some(prep_cell(&txt, color, attr, None, None))
-                    },
-                    Ok(ListColumn::Version) => {
-                        let mut txt = parse_version(&mod_info.version.clone().unwrap_or_default()).unwrap().to_string();
-                        if mod_sync_data.is_symlink {
-                            txt += " (modpack)";
+                        
+                        if modpack_call && config.modpacks.enabled.contains(&mid) {
+                            txt += "(enabled) ";
+                            the_color = Some(CellColor::Green);
                         }
                         
+                        if mod_sync_data.is_symlink {
+                            txt += "(";
+                            txt += enabled_modpacks.iter()
+                                .find(|(_,v)| v.contains(&mid))
+                                .map_or("?modpack?",|(k,_)| k);
+                            
+                            txt += ") ";
+                            the_color = Some(CellColor::DarkYellow);
+                        }
+                        
+                        Some(prep_cell(txt + &mid, the_color, attr, None, None))
+                    },
+                    Ok(ListColumn::Version) => {
+                        let txt = parse_version(&mod_info.version.clone().unwrap_or_default()).unwrap().to_string();
                         Some(prep_cell(txt.to_string(), color, attr, None, Some(CellAlignment::Right)))
                     },
                     Ok(ListColumn::LatestVersion) => {

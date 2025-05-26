@@ -77,7 +77,12 @@ pub async fn config_table(args: &TableArgs) {
         }
     }
 
-    config.save(None).unwrap();
+    match config.save(None) {
+        Ok(()) => {}
+        Err(e) => {
+            error!("Unable to save config table {}", e.to_string());
+        }
+    }
 }
 
 fn fill_vec_from_section(section: &FlattenMap, the_vec: &mut Vec<(CellData, CellData)>) {
