@@ -7,7 +7,7 @@ pub trait OptionExt {
 
     fn matches_contains(&self, query: &str) -> bool;
     fn as_str_option(&self) -> Option<&str>;
-    fn as_u32_option(&self) -> Option<u32>;
+    fn as_i64_option(&self) -> Option<i64>;
 }
 
 impl OptionExt for Option<String> {
@@ -21,7 +21,7 @@ impl OptionExt for Option<String> {
         self.as_deref()
     }
 
-    fn as_u32_option(&self) -> Option<u32> {
+    fn as_i64_option(&self) -> Option<i64> {
         None
     }
 }

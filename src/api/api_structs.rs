@@ -77,7 +77,7 @@ pub struct ModInfo {
     #[serde(default, rename = "networkVersion", alias = "NetworkVersion", alias = "Networkversion", alias = "networkversion")]
     pub network_version: Option<String>,
     #[serde(default, rename = "textureSize", alias = "TextureSize", alias = "Texturesize", alias = "texturesize")]
-    pub texture_size: Option<u32>,
+    pub texture_size: Option<i64>,
     #[serde(default, alias = "Description")]
     pub description: Option<String>,
     #[serde(default, alias = "Website")]
@@ -177,14 +177,14 @@ impl ModsSearchFile {
 #[derive(Default)]
 pub struct ModApi {
     #[serde(default, rename = "modid", alias = "mod_id")]
-    pub mod_id: u32,
+    pub mod_id: i64,
     #[serde(default, rename = "assetid")]
-    pub asset_id: u32,
-    pub downloads: u32,
-    pub follows: u32,
+    pub asset_id: i64,
+    pub downloads: i64,
+    pub follows: i64,
     #[serde(default, rename = "trendingpoints")]
-    pub trending_points: u32,
-    pub comments: u32,
+    pub trending_points: i64,
+    pub comments: i64,
     pub name: Option<String>,
     pub summary: Option<String>,
     #[serde(default, rename = "modidstrs")]
@@ -217,9 +217,9 @@ pub struct Mod {
 #[derive(Deserialize, Serialize, Debug, PartialEq, Clone)]
 pub struct ApiModJson {
     #[serde(default, rename="modid", alias = "ModID", alias = "mod_id")]
-    pub mod_id: u32,
+    pub mod_id: i64,
     #[serde(default, rename="assetid")]
-    pub asset_id: u32,
+    pub asset_id: i64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -254,16 +254,16 @@ pub struct ApiModJson {
     pub wiki_url: Option<String>,
 
     #[serde(default)]
-    pub downloads: u32,
+    pub downloads: i64,
     
     #[serde(default)]
-    pub follows: u32,
+    pub follows: i64,
     
     #[serde(default, rename = "trendingpoints")]
-    pub trending_points: u32,
+    pub trending_points: i64,
     
     #[serde(default)]
-    pub comments: u32,
+    pub comments: i64,
     
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub side: Option<String>,
@@ -288,7 +288,7 @@ pub struct ApiModJson {
 #[derive(Deserialize, Serialize, Debug, PartialEq, Clone)]
 pub struct Releases {
     #[serde(default, rename = "release_id")]
-    pub release_id: u32,
+    pub release_id: i64,
     #[serde(default, rename = "mainfile")]
     pub main_file: Option<String>,
 
@@ -297,10 +297,10 @@ pub struct Releases {
     pub filename: Option<StringOrInt>,
     // mod awearablelight has null for a fileid on a release
     #[serde(default, rename = "fileid")]
-    pub file_id: u64,
+    pub file_id: i64,
 
     #[serde(default)]
-    pub downloads: u32,
+    pub downloads: i64,
     #[serde(default)]
     pub tags: Vec<String>,
     #[serde(default, rename = "modidstr")]
@@ -316,7 +316,7 @@ pub struct Releases {
 #[derive(Deserialize, Serialize, Debug, PartialEq, Clone)]
 pub struct Screenshots {
     #[serde(default, rename = "fileid")]
-    pub file_id: u32,
+    pub file_id: i64,
     #[serde(default, rename = "mainfile")]
     pub main_file: Option<String>,
     #[serde(default)]
@@ -340,7 +340,7 @@ pub struct Tags {
 #[derive(Deserialize, Serialize, Debug)]
 pub struct Tag {
     #[serde(default, rename = "tagid")]
-    pub tag_id: u32,
+    pub tag_id: i64,
     #[serde(default)]
     pub name: String,
     #[serde(default)]
@@ -361,7 +361,7 @@ pub struct GameVersions {
 #[derive(PartialEq)]
 pub struct GameVersion {
     #[serde(default, rename = "tagid")]
-    pub tag_id: u32,
+    pub tag_id: i64,
     #[serde(default)]
     pub name: String,
     #[serde(default)]
@@ -382,7 +382,7 @@ pub struct Authors {
 #[derive(Deserialize, Serialize, Debug)]
 pub struct Author {
     #[serde(default, rename = "userid")]
-    pub user_id: u32,
+    pub user_id: i64,
     #[serde(default)]
     pub name: String,
 }
@@ -399,11 +399,11 @@ pub struct Comments {
 #[derive(Deserialize, Serialize, Debug)]
 pub struct Comment {
     #[serde(default, rename = "commentid")]
-    pub comment_id: u32,
+    pub comment_id: i64,
     #[serde(default, rename = "assetid")]
-    pub asset_id: u32,
+    pub asset_id: i64,
     #[serde(default, rename = "userid")]
-    pub user_id: u32,
+    pub user_id: i64,
     #[serde(default)]
     pub text: String,
     #[serde(default)]
@@ -425,11 +425,11 @@ pub struct ChangeLogs {
 #[derive(Deserialize, Serialize, Debug)]
 pub struct ChangeLog {
     #[serde(default, rename = "changelogid")]
-    pub changelog_id: u32,
+    pub changelog_id: i64,
     #[serde(default, rename = "assetid")]
-    pub asset_id: u32,
+    pub asset_id: i64,
     #[serde(default, rename = "userid")]
-    pub user_id: u32,
+    pub user_id: i64,
     #[serde(default)]
     pub text: String,
     #[serde(default)]

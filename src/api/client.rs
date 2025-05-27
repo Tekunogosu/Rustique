@@ -123,7 +123,6 @@ impl ApiClient {
         //     context: format!("fetch_mod (json) [{mod_id}]: failed to get response text"),
         //     source: e,
         // })?;
-
         
 
         info!("fetch_mod ({}): Status Code: {}", mod_id.magenta(), status_code.magenta());
@@ -184,17 +183,20 @@ impl ApiClient {
     }
 
     pub async fn fetch_game_versions(&self) -> Result<HashSet<String>, RustiqueError> {
-        let res = self.agent.get(Self::api_uri("gameversions"))
-            .send().await
-            .map_err(|e| RustiqueError::ApiError {
+        let response = self.agent.get(Self::api_uri("gameversions"))
+                           .send().await
+                           .map_err(|e| RustiqueError::ApiError {
             context: "Failed during gameversions api call".to_string(),
             source: e,
         })?;
-       
-        let versions = res.json::<GameVersions>().await.map_err(|e| RustiqueError::ApiError {
+        
+        
+        let text = response.text().await.map_err(|e| RustiqueError::ApiError {
             context: "Failed parsing game versions api data".to_string(),
             source: e,
         })?;
+       
+        let versions: GameVersions = serde_json::from_str(&text).map_err(|e| RustiqueError::SimpleError(e.to_string()))?;
         
         let hash: HashSet<String> = versions.game_versions
             .iter().map(|gv| &gv.name).cloned().collect();

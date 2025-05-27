@@ -48,9 +48,9 @@ pub struct Config {
     pub pkg: Vec<Package>,
    
     #[serde(default = "default_sync_time")]
-    pub sync_latest_game_version_file_every: u32,
+    pub sync_latest_game_version_file_every: i64,
     #[serde(default = "default_sync_time")]
-    pub sync_mod_search_file_every: u32,
+    pub sync_mod_search_file_every: i64,
 
     pub table: Tables,
 }
@@ -84,7 +84,7 @@ pub struct Package {
     pub pinned_version: Option<String>,
 }
 
-fn default_sync_time() -> u32 {
+fn default_sync_time() -> i64 {
     24
 }
 

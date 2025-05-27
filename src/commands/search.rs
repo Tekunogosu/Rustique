@@ -50,7 +50,7 @@ impl Searchable for ModApi {
         }
     }
 
-    fn matches_id(&self, id: u32) -> bool {
+    fn matches_id(&self, id: i64) -> bool {
         self.mod_id == id || self.asset_id == id
     }
 
@@ -106,7 +106,7 @@ impl Sortable for ModApi {
 pub enum SearchCriteria {
     Text(String),
     Field {field: Field, value: String},
-    Id(u32),
+    Id(i64),
     Tag(String),
 }
 
@@ -157,7 +157,7 @@ impl SearchQuery {
     }
 
     #[allow(dead_code)]
-    pub fn add_id_search(mut self, id: u32) -> Self {
+    pub fn add_id_search(mut self, id: i64) -> Self {
         self.criteria.push(SearchCriteria::Id(id));
         self
     }
