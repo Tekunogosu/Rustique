@@ -1,3 +1,4 @@
+#![feature(path_add_extension)]
 #![warn(clippy::perf, clippy::pedantic)]
 #![warn(clippy::manual_string_new)]
 #![allow(clippy::redundant_closure_for_method_calls, clippy::struct_field_names, clippy::doc_markdown, clippy::unnecessary_wraps)]
@@ -19,6 +20,7 @@ mod config;
 mod consts;
 mod updater;
 
+use std::env::args;
 use crate::cli_commands::{Cli, Commands, ShellType};
 use config::config::parse_config_args;
 use crate::commands::install::{install_cmd, install_missing_deps};
@@ -32,10 +34,10 @@ use owo_colors::OwoColorize;
 use commands::sync::sync;
 use commands::update::update_mods;
 use std::io;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::exit;
 use std::time::Instant;
-use comfy_table::Color;
+use comfy_table::{Attribute, Color};
 use tracing::{debug, error, info, warn};
 use crate::commands::download::download;
 use crate::commands::info::info;
@@ -46,6 +48,7 @@ use crate::modpack::modpack_commands::parse_modpack_commands;
 use crate::traits::ref_ext::PathRef;
 use crate::traits::string_ext::StrLowerExt;
 use crate::updater::update_manager;
+use crate::updater::update_manager::check_for_update;
 
 fn main() {
     // Initialize the Tokio runtime
@@ -86,11 +89,30 @@ async fn async_main() {
     // the mods_dir from the cli takes priority from all other means, including the config file
     if cli.mods_dir.is_some() {
         mod_dir = get_expanded_path(PathBuf::from(cli.mods_dir.clone().unwrap_or(String::new())));
+        if !mod_dir.exists() {
+            notice("The directory you specified is not valid. Check your input for typos and try again.", Some(Color::Yellow), vec![Attribute::Bold]); 
+            exit(1);
+        }
     }
 
     info!("Operating on mods dir: {:?}", mod_dir);
 
-    
+
+    // don't display the update message we are calling anything with self as it already deall with updates
+    if !matches!(&cli.command, Commands::RustiqueSelf(_)) {
+        let _ = check_for_update(false, true).await;
+    }
+
+    if cli.with_mpk.is_some() {
+        let config = get_config().read().await;
+        mod_dir = Path::new(&config.modpacks.modpack_dir).join("installed").join(cli.with_mpk.clone().unwrap_or(String::new()));
+        if !mod_dir.exists() {
+            notice("The modpack you specified isn't installed. Double check your spelling and try again.", Some(Color::Yellow), vec![Attribute::Bold]);
+            exit(1);
+        }
+    }
+
+
     match &cli.command {
         Commands::Sync(args) => {
             // Sync will add a rustique-sync.json to a valid mod_dir
@@ -209,7 +231,7 @@ async fn async_main() {
         Commands::Misc{ .. }=> {},
         Commands::RustiqueSelf(args) =>{
             if args.check_updates {
-                match update_manager::check_for_update(false).await {
+                match update_manager::check_for_update(false, false).await {
                     Ok(_) => {
                        // Since this is a direct check for update, we don't do anything with the returned bool. 
                     },
@@ -220,8 +242,7 @@ async fn async_main() {
             }
             
             if args.update {
-                let force = args.force;
-                match update_manager::self_update_binary(force).await {
+                match update_manager::self_update_binary(args.force).await {
                     Ok(()) => {}
                     Err(e) => {
                        error!("{}", e.to_string().red().bold()); 

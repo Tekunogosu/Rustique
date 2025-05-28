@@ -1,22 +1,17 @@
-use std::env::temp_dir;
-use tokio::fs::File;
+use std::env;
 use std::sync::Arc;
 use std::time::Duration;
 use comfy_table::{Attribute, CellAlignment, Color};
-use indicatif::{ProgressBar, ProgressStyle};
+use comfy_table::presets::UTF8_HORIZONTAL_ONLY;
+use indicatif::ProgressStyle;
 use reqwest::Client;
 use reqwest::header::ACCEPT;
-use self_update::backends::github::Update;
-use self_update::cargo_crate_version;
-use tokio::fs;
-use tokio::io::AsyncWriteExt;
 use tracing::{debug, info};
-use uuid::Uuid;
-use crate::api::client::{ApiClient, RUSTIQUE_USER_AGENT};
-use crate::commands::download::download_file;
-use crate::information_utils::{notice, rustique_message, CellData, RustiqueMessage};
+use crate::api::client::RUSTIQUE_USER_AGENT;
+use crate::information_utils::{command_output, display_table, notice, rustique_message, CellData, RustiqueMessage};
 use crate::rustique_errors::RustiqueError;
 use crate::updater::github_api_args::GithubReleases;
+use crate::updater::self_update::RustiqueUpdater;
 use crate::version_management::parse_version;
 
 // this url shows all releases for rustique published to github
@@ -60,36 +55,38 @@ impl GithubApi {
     }
 }
 
-pub async fn check_for_update(hide_message: bool) -> Result<bool, RustiqueError> {
+pub async fn check_for_update(hide_message: bool, hide_is_updated_msg: bool) -> Result<bool, RustiqueError> {
 
     let client = GithubApi::new();
 
     let latest_release = client.get_latest_release().await?;
 
     let latest_version = parse_version(latest_release.tag_name.as_str())?;
-    let current_version = parse_version(cargo_crate_version!())?;
-    // let current_version = parse_version("0.4.2")?;
+    let current_version = parse_version(env!("CARGO_PKG_VERSION"))?;
 
     let has_update = latest_version > current_version;
 
     if !hide_message {
         if has_update {
             rustique_message(RustiqueMessage {
-                header: Some(CellData::new("Rustique Update Available!".into(), Some(Color::Green), vec![Attribute::Bold], Some(CellAlignment::Center))),
+                header: Some(CellData::new("New Rustique Version Available!".into(), Some(Color::Green), vec![Attribute::Bold], Some(CellAlignment::Center))),
                 message: vec![
                     CellData::new(format!("Version: {latest_version} is now available!"), Some(Color::Green), vec![Attribute::Bold], Some(CellAlignment::Center)),
                     CellData::new("You can update Rustique with the following command: ".into(), Some(Color::Yellow), vec![], Some(CellAlignment::Center)),
-                    CellData::new("./Rustique self update".into(), Some(Color::Magenta), vec![Attribute::Bold], Some(CellAlignment::Center)),
+                    CellData::new("./Rustique self --update".into(), Some(Color::Magenta), vec![Attribute::Bold], Some(CellAlignment::Center)),
                     CellData::default(),
                     CellData::new("You can disable this message with ./Rustique config set --disable-update-message".into(), Some(Color::Cyan), vec![Attribute::Italic, Attribute::Dim], Some(CellAlignment::Center)),
                 ],
             });
-        } else {
-            notice("Rustique is up-to-date!", Some(Color::Green), vec![Attribute::Bold]);
+        } else if !hide_is_updated_msg {
+            display_table(
+                vec![command_output("Rustique is up-to-date!", format!("v{current_version}"))], 
+                          Some(UTF8_HORIZONTAL_ONLY)
+            );
         }
     }
 
-    info!("Current Version: {current_version}, latest version {latest_version}");
+    info!("Current Version: {current_version}, latest version {latest_version}, has-update: {has_update}");
 
     Ok(has_update)
 }
@@ -105,44 +102,66 @@ pub async fn self_update_binary(force_update: bool) -> Result<(), RustiqueError>
 
     let github_client = GithubApi::new();
     let latest_release = github_client.get_latest_release().await?;
-
+    // 
     let latest_version = parse_version(latest_release.tag_name.as_str())?;
-
-    // if we want to force the update, set the version to 0.0.0 so its always out of date.
-    // it's a hack.. but im lazy :3
+    // 
+    // // if we want to force the update, set the version to 0.0.0 so its always out of date.
+    // // it's a hack.. but im lazy :3
     let current_version = if force_update {
+        info!("Forcing update");
         parse_version("0.0.0")?
     } else {
-        parse_version(cargo_crate_version!())?
+        parse_version(env!("CARGO_PKG_VERSION"))?
     };
+    
+    info!("Force update: {force_update}");
 
-    if latest_version == current_version && !force_update {
-       notice(format!("Already up-to-date: {latest_version}"), Some(Color::Green), vec![Attribute::Bold]);
-        return Ok(());
+    if !force_update && !check_for_update(true, true).await? {
+        info!("Rustique already up-to-date!");
+        notice(format!("Already on latest version: {current_version}"), Some(Color::Green), vec![Attribute::Bold]);
+        return Ok(())
     }
+    
+    info!("Update found, current version: {current_version}, new version: {latest_version}");
+    
+    let platform_bin_name = get_platform_bin_name(); 
 
-    let archive_name = get_platform_bin_name()+".zip";
+    let archive_name = format!("{}.zip", &platform_bin_name);
 
-    let download_url = latest_release.assets.iter().find(|a| {
+    let Some(download_url) = latest_release.assets.iter().find(|a| {
         a.name == archive_name
-    }).map(|a| &a.browser_download_url);
-
-    let Some(download_url) = download_url else {
+    }).map(|a| &a.browser_download_url) else {
         return Err(RustiqueError::SimpleError("Failed to get download url".into()));
     };
 
-    let client = ApiClient::new();
-
-    // create a unique path to work with our update
-    let temp = temp_dir().join(Uuid::new_v4().to_string());
-    if !temp.exists() {
-        fs::create_dir_all(&temp).await?;
+    let new_binary_name: String = if cfg!(windows) {
+        "Rustique.exe".into()
+    } else {
+        "Rustique".into()
+    };
+    
+       
+    #[cfg(windows)]
+    match RustiqueUpdater::new(&new_binary_name)
+        .await?
+        .download_archive(&archive_name, download_url, "Latest version downloaded...")
+        .await?
+        .create_update_script()
+        .await?
+        .execute_update_bat() {
+        Ok(()) => {}
+        Err(e) => {
+            return Err(RustiqueError::SimpleError(format!("Failed execute windows update script: {e}")))
+        }
     }
 
-    download_file(&client, download_url, temp.join(&archive_name), format!("Rustique archive saved to {}", temp.join(&archive_name).display())).await?;
-
-
-    
+    #[cfg(unix)]
+    RustiqueUpdater::new(&new_binary_name)
+        .await?
+        .download_archive(&archive_name, download_url, "Latest version downloaded...")
+        .await?
+        .update()
+        .await?;
 
     Ok(())
 }

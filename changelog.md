@@ -1,3 +1,10 @@
+# Version 0.5.0-alpha - Self Updating.. Update!
+* Rustique now has a self update!! Rustique will update in place. Check out `Rustique help self` to see the commands. (You can check for updates and perform an update)
+* Fixed `list --updates` showing all mods instead of only ones that need updates. This fixes issue #12.
+* `list` now runs sync automatically if the sync file is missing from an installed modpack. This through an error before.
+* Added `--with-mpk` to the base `Rustique` flags as a shortcut to handling modpack mods. You'll be able to use the base commands, `list`,`update`,`install`, on the packpack mods dir.  `Rustique -w tmmv update -a` -- this will update all the individual mods in the tmmv modpack.
+
+
 # Version 0.4.2-alpha
 * Fixed regression bug #11 that fails to decode api json data when the file_id for a release is null
 

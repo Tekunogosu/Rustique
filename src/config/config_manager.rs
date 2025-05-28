@@ -5,7 +5,7 @@ use comfy_table::{Attribute, CellAlignment, Color};
 use dirs::home_dir;
 use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
-use std::{fs, mem};
+use std::fs;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::PathBuf;

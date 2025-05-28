@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use crate::aliases::{ModFileName, ModID};
 use crate::api::api_structs::{ModInfo};
-use crate::commands::sync::{get_sync_data, ModSyncInfo, RustiqueSyncJson};
+use crate::commands::sync::{get_sync_data, sync, ModSyncInfo, RustiqueSyncJson};
 use crate::rustique_errors::RustiqueError;
 use crate::utils::{extract_all_mods_metadata, gather_dependencies, gather_missing_dependencies, parse_json_file, sanitize_string};
 use crate::version_management::parse_version;
@@ -110,6 +110,10 @@ pub async fn cmd_list(mod_dir: impl PathRef, only_updated: bool, modpack_call: b
     for (mid, v) in &mut enabled_modpacks {
         let mpath = Path::new(&config.modpacks.modpack_dir).join("installed").join(mid);
         if mpath.exists() {
+            let mp_sync_file_path = &mpath.join(FILE_RUSTIQUE_SYNC);
+            if !mp_sync_file_path.exists() {
+                sync(&mpath, true, &[]).await?;
+            }
             let mp_sync_file = parse_json_file::<RustiqueSyncJson>(&mpath.join(FILE_RUSTIQUE_SYNC)).await?;
             v.extend(mp_sync_file.rustique_sync.into_keys());
         }
@@ -121,11 +125,20 @@ pub async fn cmd_list(mod_dir: impl PathRef, only_updated: bool, modpack_call: b
     let rows: Vec<Row> = sorted_mods
         .iter()
         .filter(|(_, mod_info)| {
-            !local_mp_call || !only_updated || sync_hashmap.values()
+            // Show all mods if local_mp_call is true
+            // OR
+            // show all mods if only_updated is false
+            // OR
+            // show only updates if only_updated is true, and local_mp_call is false
+            local_mp_call || !only_updated
+                || sync_hashmap.values()
                 .find(|sync| sync.mod_name == mod_info.name)
                 .is_some_and(|sync| sync.latest_known_version != sync.installed_version)
         })
         .map(|(filename, mod_info)| {
+            
+            
+            let file_is_smylink = mod_dir.join(filename).is_symlink();
            
             let pkg = config.pkg.iter().find(|p| p.mod_id.eq(&mod_info.mod_id));
             let cells: Vec<Cell> = list_columns.cells.iter().filter_map(|(column, properties)| { 
@@ -166,7 +179,7 @@ pub async fn cmd_list(mod_dir: impl PathRef, only_updated: bool, modpack_call: b
                             the_color = Some(CellColor::Green);
                         }
                         
-                        if mod_sync_data.is_symlink {
+                        if file_is_smylink {
                             txt += "(";
                             txt += enabled_modpacks.iter()
                                 .find(|(_,v)| v.contains(&mid))

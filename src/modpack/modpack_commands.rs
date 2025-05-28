@@ -7,6 +7,7 @@ use tracing::{error, info};
 use owo_colors::OwoColorize;
 use crate::commands::arg_structs::modpack_args::{MPLocalSubCommands, ModpackCommands, ModpackSubCommands};
 use crate::commands::info::info;
+use crate::commands::install::install_cmd;
 use crate::commands::list::cmd_list;
 use crate::config::config_manager::get_config;
 use crate::information_utils::{command_output, display_table, notice};
@@ -143,8 +144,6 @@ pub async fn parse_modpack_commands(commands: &ModpackCommands, mod_dir: impl Pa
                         }
                     }
                 }
-                MPLocalSubCommands::Install(install_args) => {}
-                MPLocalSubCommands::Update(update_args) => {}
                 MPLocalSubCommands::Delete => {}
                 
             }

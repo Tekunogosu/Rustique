@@ -1,5 +1,5 @@
 use crate::config::config_manager::Config;
-use crate::aliases::{ModFileName, ModID};
+use crate::aliases::{ModFileName, ModID, ModVersion};
 use crate::api::api_structs::{ModApi, ModInfo};
 use crate::commands::sync::{GameVersionSync, ModSyncInfo};
 use crate::install_manager::{Install, Installed};
@@ -12,14 +12,16 @@ use std::path::PathBuf;
 use std::process::exit;
 use async_zip::tokio::read::fs::ZipFileReader;
 use futures::{stream, StreamExt};
+use semver::Version;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::fs::File;
 use tracing::{debug, error, info, warn};
 use crate::config::config_manager::get_config;
 use crate::consts::{FILE_GAME_VERSION_SYNC, FILE_MODINFO_JSON, FILE_RUSTIQUE_SYNC};
 use crate::modpack::symlink_manager::SymlinkManager;
-use crate::traits::ref_ext::PathRef;
+use crate::traits::ref_ext::{PathRef, StrRef};
 use crate::traits::string_ext::StrLowerExt;
+use crate::version_management::parse_version;
 
 #[derive(Clone, Debug)]
 pub struct RustiqueOptions {
@@ -232,7 +234,7 @@ pub async fn extract_all_mods_metadata(mod_dir: impl PathRef, ignore_symlink: bo
             }
         })
         .buffer_unordered(concurrent_limit)
-        .filter_map(|result| futures::future::ready(result))
+        .filter_map(futures::future::ready)
         .collect()
         .await;
 
@@ -374,25 +376,6 @@ pub async fn write_json_file(file_path: impl PathRef, json: String, config_dir: 
     Ok(())
 }
 
-
-pub async fn latest_stable() -> String {
-   
-    // Have to check if the file even exists first or we get weird behavior 
-    // this function is called during the process in which clap creates the cli args,
-    // if the file doesn't exist, the program exits immediately
-    // this file will be created the first time sync is executed
-    if !Config::get_path().join(FILE_GAME_VERSION_SYNC).exists() {
-        return "0.0.0".into()
-    }
-    
-    let version = sorted_game_versions().await;
-   
-    // filter out all the unstable version which end with -rc.xx
-    let out: Vec<String> = version.iter().filter(|v| !v.lower_contains("-rc")).cloned().collect();
-    
-    out.first().unwrap_or(&String::new()).to_string()
-}
-
 pub async fn sorted_game_versions() -> Vec<String> {
     let version_file_path = Config::get_path().join(FILE_GAME_VERSION_SYNC);
 
@@ -443,6 +426,9 @@ pub fn find_mod_id<V: AsRef<[ModApi]>>(mod_name: &String, mod_filename: &ModFile
     } 
 }
 
+/// Removes older files after updates 
+/// 
+/// processed_install: Vec<Installed>
 pub async fn remove_older_files(processed_install: &[Installed]) -> Result<(), RustiqueError> {
     for mod_installed in processed_install {
         if let (Some(old), Some(new)) = (&mod_installed.old_file_path, &mod_installed.installed_file_path) {
@@ -455,4 +441,12 @@ pub async fn remove_older_files(processed_install: &[Installed]) -> Result<(), R
         }
     }
     Ok(())
+}
+
+pub fn get_version_from_modid(mod_id_str: impl StrRef) -> Result<(ModID, Option<Version>), RustiqueError> {
+    if let Some((modid, version)) = mod_id_str.as_ref().split_once('@') {
+       return Ok((modid.to_string(), Some(parse_version(version)?)));
+    }
+    
+    Ok((mod_id_str.as_ref().to_string(), None))
 }

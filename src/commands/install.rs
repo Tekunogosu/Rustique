@@ -1,10 +1,11 @@
+use semver::Version;
 use crate::aliases::ModID;
 use crate::api::client::ApiClient;
 use crate::commands::sync::{get_sync_data};
 use crate::install_manager::{install_manager, Install};
 use crate::rustique_errors::RustiqueError;
 use crate::rustique_errors::RustiqueError::SimpleError;
-use crate::utils::{extract_all_mods_metadata, gather_missing_dependencies};
+use crate::utils::{extract_all_mods_metadata, gather_missing_dependencies, get_version_from_modid};
 use crate::version_management::{parse_latest_version};
 use tracing::{debug, info};
 use crate::information_utils::{display_installation_results};
@@ -18,6 +19,8 @@ pub async fn install_cmd(mod_dir: impl PathRef, mods_requested: Vec<ModID>, _for
     info!("install_cmd: {mods_requested:?}");
     // get sync data
     let sync_data = get_sync_data(mod_dir).await?;
+    
+    // let (mod_id, version): (ModID, Option<Version>) = get_version_from_modid()
 
     let installed_mods = sync_data.rustique_sync.clone();
     // remove any mods from mods_requested if they exist in installed_mods

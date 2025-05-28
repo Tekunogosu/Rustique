@@ -27,12 +27,17 @@ pub struct Cli {
     #[arg(short, long, default_value = "false")]
     pub debug: bool,
 
-    /// Specify the directory to manage mods. This takes priority over any other directory setting, including from the config file
+    /// Specify the directory to manage mods. This takes priority over any other directory setting, including from the config file.
     #[arg(short, long)]
-    pub(crate) mods_dir: Option<String>,
+    pub mods_dir: Option<String>,
+    
+    /// This command will set the working mod directory to be that of the modpack specified, INCLUDING modpacks you create. 
+    /// If you use this to work on a custom modpack, you will need to run Rustique modpack create again to update your modpack file, just set the --mpk-id to the same one you used before to overwrite the old one.
+    #[arg(short, long)]
+    pub with_mpk: Option<String>,
     
     #[command(subcommand)]
-    pub(crate) command: Commands,
+    pub command: Commands,
 }
 
 #[derive(Subcommand)]

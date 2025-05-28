@@ -1,7 +1,6 @@
 use std::path::{Path, PathBuf};
 use std::process::exit;
 use comfy_table::{Attribute, Color};
-use dirs::download_dir;
 use indicatif::{ProgressBar, ProgressStyle};
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
@@ -69,34 +68,6 @@ pub async fn download(args: &DownloadArgs) -> Result<(), RustiqueError> {
     let save_loc = PathBuf::from(&download_dir).join(&filename);
     download_file(&client, &url, &save_loc, "").await?;
     
-    // get the total size of the download
-    // let response = client.head(&url).await?;
-    // let total_size = response.headers()
-    //     .get(reqwest::header::CONTENT_LENGTH)
-    //     .and_then(|ct_len| ct_len.to_str().ok())
-    //     .and_then(|ct_len| ct_len.parse::<u64>().ok())
-    //     .unwrap_or(0);
-    // 
-    // info!("Total size of download: {:?}", total_size);
-    // 
-    // let pb = ProgressBar::new(total_size);
-    // pb.set_style(
-    //     ProgressStyle::with_template("[{elapsed_precise:.yellow}] [{bar:40.green/grey}] [{bytes:.cyan}/{total_bytes:.green}] [{percent:.magenta}%]")
-    //         .unwrap().progress_chars("#}•")
-    // );
-    // 
-    // // download the game
-    // let mut res = client.get_request(&url).await?;
-    // let mut file = File::create(PathBuf::from(&download_dir).join(&filename)).await?;
-    // let mut downloaded = 0;
-    // 
-    // while let Some(chunk) = res.chunk().await.map_err(|e| RustiqueError::SimpleError(e.to_string()))? {
-    //     file.write_all(&chunk).await?;
-    //     downloaded += chunk.len() as u64;
-    //     pb.set_position(downloaded);
-    // }
-    // 
-    // pb.finish();
     
     notice(format!("Vintage Story has been saved to {download_dir}/{filename}"), Some(Color::Green), vec![Attribute::Bold]);
     

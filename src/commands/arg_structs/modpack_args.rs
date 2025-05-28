@@ -166,36 +166,9 @@ pub struct MPLocalArgs {
 pub enum MPLocalSubCommands {
     /// List all locally created modpacks. It ONLY shows the modpacks you've created, use `Rustique modpack list` to see the modpacks you installed.
     List,
-    /// Install a new mod into your modpack. 
-    Install(MPLocalInstallArgs),
-    /// Update lets you manually update either all your mods (default) or a specific set of mods. If you want to install a specific version of the mod, use `Rustique modpack local install` instead. 
-    Update(MPLocalUpdateArgs),
     
     /// This feature is being worked on...
     Delete,
 }
 
-#[derive(Args, Debug, Clone)]
-pub struct MPLocalInstallArgs {
-    /// The ID of your locally created modpack
-    pub mpk_id: String,
-    
-    /// The mod you want to install into this modpack. This command will update your modpack.zip as well
-    #[arg(short = 'm', long)]
-    pub mod_id: Option<String>,
-    
-    /// Install a specific version of the mod. You can use `Rustique info mod_id` to see versions for that mod. 
-    #[arg(short = 'v', long)]
-    pub mod_version: Option<String>
-}
 
-#[derive(Args, Debug, Clone)]
-pub struct MPLocalUpdateArgs {
-    
-    /// The ID of your locally created modpack
-    pub mpk_id: String,
-    
-    /// Update a specific set of mods. You can specify any number of mods with this command.
-    #[arg(short = 'm', long)]
-    pub mod_id: Option<String>,
-}
