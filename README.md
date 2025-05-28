@@ -71,9 +71,8 @@ The commands are as follows:
 
 
 ## Missing Features
-* `Modpack` creation, installation, and management. There is no default mod pack capability for VS, so Rustique will fill that void.
 * GUI - Yes, a GUI is planned! This is a ways out and will only happen after Rustique is more or less feature complete. 
-
+* Localization - I only speak english and this will prob be one of the last features I implement. Open a github issue if you want to help with this.
 
 ## Known Issues
 * **None:** If you find any, please open an issue here on Github. Seriously, I need you to break it!

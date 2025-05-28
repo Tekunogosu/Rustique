@@ -16,6 +16,7 @@ use crate::commands::arg_structs::download_args::DownloadArgs;
 #[command(about = "An extremely fast mod manager for Vintage Story, written in Rust.")]
 #[command(version, about, long_about = None)]
 #[command(propagate_version = true)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct Cli {
 
     /// Shows info level logging messages. This is very noisy, used for debugging.
@@ -29,7 +30,7 @@ pub struct Cli {
     /// Specify the directory to manage mods. This takes priority over any other directory setting, including from the config file
     #[arg(short, long)]
     pub(crate) mods_dir: Option<String>,
-
+    
     #[command(subcommand)]
     pub(crate) command: Commands,
 }
@@ -63,16 +64,31 @@ pub enum Commands {
     #[command(about = "Download a Vintage Story executable")]
     Download(DownloadArgs),
 
-    // #[command(about = "View the changelogs for a installed mod (Not Implemented)")]
-    // Changelog(ChangeLogArgs),
-
     #[command(about = "Get more information about the mod specified")]
     Info(ModInfoArgs),
     
-    #[command(about = "Create, download, update modpacks for VintageStory (Not Implemented)")]
-    Modpack(ModpackCommands)
+    #[command(about = "Create, download, update modpacks for VintageStory")]
+    Modpack(ModpackCommands),
+    
+    #[command(name = "self", about = "Manage the Rustique binary; Check for updates, perform updates.")]
+    RustiqueSelf(UpdaterArgs),
 }
 
+#[derive(Args, Debug)]
+pub struct UpdaterArgs {
+    
+    /// Manually check if there is a new update for Rustique. 
+    #[arg(short, long, default_value = "false")]
+    pub check_updates: bool,
+    
+    /// Update your Rustique binary, if there is one available. 
+    #[arg(short, long, default_value = "false")]
+    pub update: bool,
+    
+    /// Force update to the latest version, regardless of current version
+    #[arg(short, long, default_value = "false")]
+    pub force: bool,
+}
 
 #[derive(Args, Debug)]
 pub struct ModIDSync {

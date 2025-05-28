@@ -17,6 +17,7 @@ mod information_utils;
 mod modpack;
 mod config;
 mod consts;
+mod updater;
 
 use crate::cli_commands::{Cli, Commands, ShellType};
 use config::config::parse_config_args;
@@ -44,6 +45,7 @@ use crate::information_utils::{elapsed_footer, notice};
 use crate::modpack::modpack_commands::parse_modpack_commands;
 use crate::traits::ref_ext::PathRef;
 use crate::traits::string_ext::StrLowerExt;
+use crate::updater::update_manager;
 
 fn main() {
     // Initialize the Tokio runtime
@@ -88,7 +90,7 @@ async fn async_main() {
 
     info!("Operating on mods dir: {:?}", mod_dir);
 
-    // TODO: check for windows equiv
+    
     match &cli.command {
         Commands::Sync(args) => {
             // Sync will add a rustique-sync.json to a valid mod_dir
@@ -204,7 +206,30 @@ async fn async_main() {
         Commands::Modpack(cmds) => {
            parse_modpack_commands(cmds, &mod_dir).await;
         }
-       Commands::Misc{ .. }=> {},
+        Commands::Misc{ .. }=> {},
+        Commands::RustiqueSelf(args) =>{
+            if args.check_updates {
+                match update_manager::check_for_update(false).await {
+                    Ok(_) => {
+                       // Since this is a direct check for update, we don't do anything with the returned bool. 
+                    },
+                    Err(e) => {
+                        error!("{}", e.to_string().red().bold());
+                    }
+                }
+            }
+            
+            if args.update {
+                let force = args.force;
+                match update_manager::self_update_binary(force).await {
+                    Ok(()) => {}
+                    Err(e) => {
+                       error!("{}", e.to_string().red().bold()); 
+                    }
+                }
+            }
+        }
+        
     }
 }
 
