@@ -1,6 +1,11 @@
 use std::env;
 use std::ffi::OsStr;
 use std::path::PathBuf;
+
+#[cfg(windows)]
+use std::process::Command;
+
+
 use async_zip::tokio::read::fs::ZipFileReader;
 use comfy_table::{Attribute, Color};
 use futures::AsyncReadExt;
