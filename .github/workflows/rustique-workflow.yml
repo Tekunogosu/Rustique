@@ -110,7 +110,6 @@ jobs:
             fi
             cd ..
           done
-          ls -la archives/
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
