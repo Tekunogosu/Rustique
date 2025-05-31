@@ -21,25 +21,38 @@ use crate::traits::ref_ext::PathRef;
 #[allow(clippy::struct_excessive_bools)]
 pub struct Config {
     /// this sets the default mod dir so you don't have to type -m everytime
+    #[serde(default)]
     pub mod_dir: String,
     // this tells rustique which versions of the game to download mods for.
     // It will download mods up to this version and not over
+    #[serde(default)]
     pub pinned_game_version: String,
     // automatically zips mod folders that are unzipped during the sync process
+    #[serde(default)]
     pub zip_mod_files: bool,
-    // create a backup of each mod before its updated.
+    // create a bacokup of each mod before its updated.
+    #[serde(default)]
     pub backup_mods: bool,
 
     // location for the mod backups
     // default ~/.config/rustique/backups
+    #[serde(default)]
     pub backup_mods_dir: String,
 
+    
+    
     // Shows the "<operation> completed: " text after a command finishes
+    #[serde(default)]
     pub show_execution_time: bool,
 
+    #[serde(default)]
     pub notify_of_unzipped_mods: bool,
     
+    #[serde(default)]
     pub game_download_dir: String,
+    
+    #[serde(default)]
+    pub check_for_updates: bool,
 
     #[serde(default)]
     pub modpacks: ModPacks,
@@ -50,10 +63,14 @@ pub struct Config {
    
     #[serde(default = "default_sync_time")]
     pub sync_latest_game_version_file_every: i64,
+    
     #[serde(default = "default_sync_time")]
     pub sync_mod_search_file_every: i64,
 
+    #[serde(default)]
     pub table: Tables,
+    
+    
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -137,7 +154,8 @@ impl Default for Config {
             sync_mod_search_file_every: 24,
             pkg: Vec::default(),
             table: Tables::with_defaults(),
-            modpacks: ModPacks::default()
+            modpacks: ModPacks::default(),
+            check_for_updates: true,
         }
     }
 }

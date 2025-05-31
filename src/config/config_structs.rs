@@ -24,6 +24,15 @@ impl Serialize for Tables {
     }
 }
 
+impl Default for Tables {
+    fn default() -> Self {
+        Self {
+            list: Self::list_defaults(),
+            search: Self::search_defaults(),
+        }
+    }
+}
+
 impl Tables {
     pub fn with_defaults() -> Self {
         Self { list: Self::list_defaults(), search: Self::search_defaults() }

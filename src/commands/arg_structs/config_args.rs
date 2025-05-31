@@ -1,3 +1,4 @@
+use clap::ArgAction;
 use clap::{ArgGroup, Args, Subcommand};
 use crate::aliases::ModID;
 use crate::commands::arg_structs::config_table_args::TableArgs;
@@ -93,7 +94,7 @@ pub struct CommonArgs {
     /// Displays how long a command takes to complete
     ///
     /// Default: true
-    #[arg(short, long)]
+    #[arg(short, long, action = ArgAction::Set, value_parser = clap::value_parser!(bool), value_name = "SHOW")]
     pub show_execution_time: Option<bool>,
     
     /// Specify mod options. Use --pin-version to pin a version. 
@@ -113,7 +114,12 @@ pub struct CommonArgs {
     /// If your rustique config gets messed up and you had modpack(s) enabled, use this to readd it to the config. This will allow you to properly manage the modpack again.
     #[arg(long, value_name = "MPK_ID")]
     pub modpack_enabled: Option<String>,
+
+
+    #[arg(short, long, action = ArgAction::Set, value_parser = clap::value_parser!(bool), value_name = "CHECK")]
+    pub check_for_updates: Option<bool>,
 }
+
 #[derive(Args, Debug)]
 pub struct SetArgs {
     #[command(flatten)]
@@ -149,6 +155,9 @@ pub struct DelArgs {
 
     #[arg(short, long)]
     pub notify_of_unzipped_mods: bool,
+
+    #[arg(short, long)]
+    pub check_for_updates: bool,
     
     /// Specify a pinned mod. Use `Rustique config list` to see all set mods and their IDs
     #[arg(short = 'P', long, value_name = "MOD_ID")]

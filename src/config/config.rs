@@ -186,6 +186,12 @@ async fn set(args: &CommonArgs) {
         }
     } 
     
+    if let Some(check) = args.check_for_updates {
+        config.check_for_updates = check; 
+        save = true;
+        display_vec.push(command_output("config.check_for_updates", args.check_for_updates.clone().unwrap_or_default().to_string()));
+    }
+    
     if !display_vec.is_empty() {
         display_table(display_vec, None);
     }
@@ -278,6 +284,12 @@ async fn del(args: &DelArgs) {
         }
     }
     
+    if args.check_for_updates {
+        config.check_for_updates = true;
+        save = true;
+        display_vec.push(command_output("config.check_for_updates", config.check_for_updates.to_string()));
+    }
+    
     if !display_vec.is_empty() { 
         display_table(display_vec, None);
     }
@@ -297,6 +309,8 @@ async fn list() {
         command_output("config.show_execution_time",     config.show_execution_time.to_string()),
         command_output("config.notify_of_unzipped_mods", config.notify_of_unzipped_mods.to_string()),
         command_output("config.pinned_game_version",     config.pinned_game_version.to_string()),
+        command_output("",""),
+        command_output("config.check_for_updates",       config.check_for_updates.to_string()),
         command_output("",""),
         command_output("config.modpacks.modpack_dir",    config.modpacks.modpack_dir.to_string()),
         command_output("config.modpacks.enabled",        config.modpacks.enabled.join(",")),

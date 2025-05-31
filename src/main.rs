@@ -91,13 +91,12 @@ async fn async_main() {
             exit(1);
         }
     }
+    
 
-   
-
-
-    // don't display the update message we are calling anything with self as it already deall with updates
+    // don't display the update message we are calling anything with self as it already dealt with updates
     if !matches!(&cli.command, Commands::RustiqueSelf(_)) {
-        let _ = check_for_update(false, true).await;
+        let config = get_config().read().await;
+        let _ = check_for_update(config.check_for_updates, true).await;
     }
 
     if cli.with_mpk.is_some() {
