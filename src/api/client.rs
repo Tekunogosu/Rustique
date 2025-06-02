@@ -10,7 +10,11 @@ use std::time::Duration;
 use tracing::{debug, error, info};
 use std::fmt::Write;
 use clap::ValueEnum;
+use futures::future::join_all;
+use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::Response;
+use tokio::task::JoinHandle;
+use tokio::time::sleep;
 use crate::traits::ref_ext::StrRef;
 
 const API_BASE_URL: &str = "https://mods.vintagestory.at/api";
@@ -133,51 +137,80 @@ impl ApiClient {
         
         
         let parsed: Mod = serde_json::from_str(&text).map_err(|e| RustiqueError::SimpleError(e.to_string()))?;
-        debug!("{:?}", parsed);
+        debug!("Parsed {:?}", parsed);
 
         Ok(parsed)
     }
 
     pub async fn fetch_mods_parallel(&self, mod_list: Vec<ModID>) -> Result<HashMap<ModID, Mod>, RustiqueError> {
+
+        let valid_ids: Vec<ModID> = mod_list.into_iter().filter(|m| {
+            if m.is_empty() {
+               error!("\n\r\tModID is empty or missing mod_id. Please contact the author to correct their malformed {FILE_MODINFO_JSON}.\n\r\tWithout the mod id, Rustique will be unable to manage this mod.");
+               false
+            } else {
+                true
+            }
+        }).collect();
+
+
+        if valid_ids.is_empty() {
+            return Ok(HashMap::new())
+        }
+
+        // progress bar for completed calls
+        let pb = ProgressBar::new(valid_ids.len() as u64);
+        pb.set_style(
+            ProgressStyle::default_bar()
+                .template("{spinner:.green} [{elapsed_precise:.cyan}] [{bar:.cyan/grey:40}] {pos:.green}/{len:.cyan} {msg:.yellow}")
+                .unwrap()
+                .progress_chars("█▒░")
+        );
+        pb.set_message("Fetching mods...");
+
         // Create a vector to hold all our task handles
-        let mut tasks = Vec::with_capacity(mod_list.len());
+        let mut tasks: Vec<JoinHandle<Option<(ModID, Mod)>>> = Vec::with_capacity(valid_ids.len());
 
         // Spawn a task for each mod
-        for mod_id in mod_list {
+        for (i, mod_id) in valid_ids.into_iter().enumerate() {
             info!("ModID: {}", mod_id);
 
-            if mod_id.is_empty() {
-                error!("\n\r\tModID is empty or missing mod_id. Please contact the author to correct their malformed {FILE_MODINFO_JSON}.\n\r\tWithout the mod id, Rustique will be unable to manage this mod.");
-                continue;
-            }
-
             let client = self.clone();
-
+            let pb_clone = pb.clone();
             // Spawn an async task for this mod
             let task = tokio::spawn(async move {
                 match client.fetch_mod(&mod_id).await {
                     Ok(the_mod) => {
+                        pb_clone.set_message(mod_id.to_string());
+                        pb_clone.inc(1);
                         Some((mod_id, the_mod))
                     },
                     Err(e) => {
-                        eprintln!("{mod_id} {e}");
+                        info!("{mod_id} {e}");
+                        pb_clone.set_message(format!("Failed: {}", mod_id.red()));
+                        pb_clone.inc(1);
                         None
                     }
                 }
             });
 
             tasks.push(task);
-        }
 
-        // Wait for all tasks to complete and collect results
-        let mut results = HashMap::new();
-        for task in tasks {
-            // Handle any JoinError from the task itself
-            if let Ok(Some((mod_id, the_mod))) = task.await {
-                results.insert(mod_id, the_mod);
+            // slight pause every 10 requests to not overwhelm the api
+            if i % 10 == 9 {
+                sleep(Duration::from_millis(100)).await;
             }
         }
 
+        let results_vec = join_all(tasks).await;
+        // Wait for all tasks to complete and collect results
+        let mut results = HashMap::new();
+        for (mod_id, mod_info) in results_vec.into_iter().flatten().flatten() {
+            // Handle any JoinError from the task itself
+            results.insert(mod_id, mod_info);
+        }
+
+        pb.finish_with_message("Fetch Complete");
         Ok(results)
     }
 

@@ -88,8 +88,10 @@ pub async fn install_cmd(mod_dir: impl PathRef, mods_requested: Vec<ModID>, _for
 }
 
 
-pub async fn install_missing_deps<V: AsRef<[ModID]>>(mod_dir: impl PathRef, mods_requested: V) -> Result<(), RustiqueError> {
-    let (mod_dir , mods_requested) = (mod_dir.as_ref(), mods_requested.as_ref());
+/// mod_dir_for_req is where the mods_requested will be searched for
+/// all dependencies will be installed to dep_install_path
+pub async fn install_missing_deps<V: AsRef<[ModID]>>(mod_dir_for_req: impl PathRef, mods_requested: V, dep_install_path: impl PathRef) -> Result<(), RustiqueError> {
+    let (mod_dir , mods_requested) = (mod_dir_for_req.as_ref(), mods_requested.as_ref());
     // get all installed mod info
     // retrieve all dependencies
     // send missing ones to install_manager()
@@ -132,7 +134,7 @@ pub async fn install_missing_deps<V: AsRef<[ModID]>>(mod_dir: impl PathRef, mods
 
     debug!("deps: {:?}", missing_deps);
 
-    let mods_processed = install_manager(mod_dir, missing_deps, sync_data).await?;
+    let mods_processed = install_manager(dep_install_path, missing_deps, sync_data).await?;
 
 
     info!("mods_processed {:#?}", mods_processed);

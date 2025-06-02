@@ -122,6 +122,9 @@ pub struct MPCreateArgs {
 pub struct MPInstallArgs {
     /// This is the ID from the mods website. This can either be the numerical ModID or the text version. Use `Rustique search -q modpackname` to get the numerical ID if you need
     pub mod_id: String,
+    
+    #[arg(short, long, default_value = "false")]
+    pub missing_dependencies: bool,
    
     /// Download a specific version of the modpack
     #[arg(short = 'v', long, value_name = "VERSION")]

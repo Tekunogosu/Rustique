@@ -9,6 +9,7 @@ use crate::version_management::{parse_latest_version, parse_pinned_version};
 use std::collections::{HashMap};
 use std::path::PathBuf;
 use futures::stream::{self, StreamExt};
+use indicatif::{ProgressBar, ProgressStyle};
 use tracing::{debug, error, info};
 use crate::config::config_manager::get_config;
 use crate::consts::FILE_MODINFO_JSON;
@@ -49,11 +50,11 @@ impl Default for Installed {
 impl Installed {
     pub fn new() -> Self {
         Self {
-            mod_id: "".to_string(),
-            mod_name: "".to_string(),
+            mod_id: String::new(),
+            mod_name: String::new(),
             installed_file_path: None,
             old_file_path: None,
-            install_version: "".to_string(),
+            install_version: String::new(),
             success: false,
         }
     }
@@ -100,13 +101,21 @@ pub async fn install_manager(
     let mut mods_processed: Vec<Installed> = Vec::new();
 
     let mut passes = 0;
-
+    
+    let pb = ProgressBar::new(mods_requested.len() as u64);
+    pb.set_style(
+        ProgressStyle::default_bar()
+            .template("{spinner:.green} [{elapsed_precise:.cyan}] [{bar:.blue/grey:40}] {pos:.green}/{len:.cyan} {msg:.yellow}")
+            .unwrap()
+            .progress_chars("█▒░")
+    );
+    pb.set_message("Downloading...");
+    
     loop {
-        // let mut recently_installed: Vec<Installed> = Vec::new();
 
         // this function will consume each value out of the mods_requested so we can rebuild it
         // after the dependencies check
-       let recently_installed: Vec<Installed> =  match download_requested_mods(mod_dir, &mut mods_requested, &client).await {
+       let recently_installed: Vec<Installed> =  match download_requested_mods(mod_dir, &mut mods_requested, &client, Some(&pb)).await {
             Ok(processed_mods) => {
                 debug!("Successfully installed mods: {:?}", processed_mods);
                 // update recently installed so we can get the dependencies
@@ -215,6 +224,8 @@ pub async fn install_manager(
                 mod_to_install.version_to_install = mod_version;
             }
         }
+        // increase the total length of the progress bar as there are more things to download
+        pb.inc_length(needed_dependencies.len() as u64);
         // seed the mods_requested and go again
         mods_requested.extend(needed_dependencies);
     }
@@ -223,5 +234,8 @@ pub async fn install_manager(
     mods_processed.sort_by(|a, b| a.mod_name.to_lowercase().cmp(&b.mod_name.to_lowercase()));
     mods_processed.dedup_by(|a,b| a.mod_id == b.mod_id);
 
+    
+    pb.finish_with_message("Finished installing mods");
+    
     Ok(mods_processed)
 }

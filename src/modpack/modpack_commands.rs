@@ -14,7 +14,7 @@ use crate::modpack::mp_create::{collect_mp_create_args, mp_create};
 use crate::modpack::mp_delete::delete_mpk_cmd;
 use crate::modpack::mp_disable::mp_disable;
 use crate::modpack::mp_enable::mp_enable;
-use crate::modpack::mp_install::mp_install;
+use crate::modpack::mp_install::{mp_install, mp_install_missing_deps};
 use crate::modpack::mp_update::mp_update;
 use crate::traits::ref_ext::PathRef;
 
@@ -56,26 +56,37 @@ pub async fn parse_modpack_commands(commands: &ModpackCommands, mod_dir: impl Pa
             }
         }
         ModpackSubCommands::Install(args) => {
-            match mp_install(args.mod_id.clone(), args.mod_version.clone()).await {
-                Ok(installed) => {
-                    // We update the config AFTER the installation so we know the lock on the config file is up
-                    let mut config = get_config().write().await;
-                    if !config.modpacks.disabled.contains(&installed) {
-                        config.modpacks.disabled.push(installed);
-                        match config.save(None) {
-                            Ok(_) => {}
-                            Err(e) => {
-                                error!("{}", e.red().bold());
+            
+            if args.missing_dependencies {
+               match mp_install_missing_deps(args.mod_id.clone()).await {
+                   Ok(()) => {}
+                   Err(e) => {
+                       error!("{}", e.to_string().red());
+                   }
+               } 
+            } else {
+                match mp_install(args.mod_id.clone(), args.mod_version.clone()).await {
+                    Ok(installed) => {
+                        // We update the config AFTER the installation so we know the lock on the config file is up
+                        let mut config = get_config().write().await;
+                        if !config.modpacks.disabled.contains(&installed) {
+                            config.modpacks.disabled.push(installed);
+                            match config.save(None) {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    error!("{}", e.red().bold());
+                                }
                             }
                         }
                     }
-                                  }
-                Err(e) => {
-                    notice("Failed to install modpack. Maybe you have the wrong ID?", Some(Color::Red), vec![Attribute::Bold]);
-                    // hide the error for cleaner UX
-                    info!("{}", e.to_string().red().bold());
+                    Err(e) => {
+                        notice("Failed to install modpack. Maybe you have the wrong ID?", Some(Color::Red), vec![Attribute::Bold]);
+                        // hide the error for cleaner UX
+                        info!("{}", e.to_string().red().bold());
+                    }
                 }
             }
+           
         }
         ModpackSubCommands::Enable(args) => {
             match mp_enable(args.clone(), mod_dir).await {

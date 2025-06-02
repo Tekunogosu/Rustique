@@ -177,7 +177,7 @@ async fn async_main() {
             }
             
             if args.missing_dependencies {
-                match install_missing_deps(&mod_dir, args.mod_ids.clone()).await {
+                match install_missing_deps(&mod_dir, args.mod_ids.clone(), &mod_dir).await {
                     Ok(()) => {
                         handle_sync_call(&mod_dir, false).await;
                     },

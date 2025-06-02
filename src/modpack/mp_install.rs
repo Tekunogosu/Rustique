@@ -9,18 +9,19 @@ use std::process::exit;
 use std::time::Instant;
 use comfy_table::{Attribute, Color};
 use owo_colors::OwoColorize;
-use tracing::{debug, info, warn};
+use tracing::{debug, error, info, warn};
 use crate::aliases::{ModID, ModVersion};
 use crate::api::api_structs::ModInfo;
 use crate::api::client::ApiClient;
 use crate::api::download::download_requested_mods;
+use crate::commands::install::install_missing_deps;
 use crate::commands::sync::sync;
 use crate::config::config_manager::{get_config, Package};
 use crate::consts::FILE_MODINFO_JSON;
 use crate::information_utils::{command_output, display_table, elapsed_footer, notice};
 use crate::install_manager::{install_manager, Install};
 use crate::rustique_errors::RustiqueError;
-use crate::utils::extract_zip_metadata;
+use crate::utils::{extract_all_mods_metadata, extract_zip_metadata};
 use crate::version_management::{parse_download_url_from_version, parse_latest_version, parse_pinned_version};
 
 
@@ -44,6 +45,7 @@ pub async fn mp_install(mp_id: ModID, mp_version: Option<ModVersion>) -> Result<
     let client = ApiClient::new();
     
     let mod_info = client.fetch_mod(&mp_id).await?;
+    debug!("mod_info fetched.. Doing modpack installation..");
 
     let installed_dir = Path::new(&config.modpacks.modpack_dir).join("installed");
     
@@ -54,8 +56,11 @@ pub async fn mp_install(mp_id: ModID, mp_version: Option<ModVersion>) -> Result<
         };
         parse_pinned_version(&mod_info.mod_json.releases, &pkg, String::new())
     } else {
+        debug!("Parsing latest version..");
         parse_latest_version(&mod_info.mod_json.releases)
     };
+    
+    debug!("version: {}, download_url {}", version, download_url);
     
     
     let install_modpack = Install {
@@ -70,7 +75,7 @@ pub async fn mp_install(mp_id: ModID, mp_version: Option<ModVersion>) -> Result<
     
     // download the modpack first, then install the dependencies
     let packs_dir = Path::new(&config.modpacks.modpack_dir).join("packs");
-    let Some(modpack) = download_requested_mods(&packs_dir, &mut vec![install_modpack], &client).await?.into_iter().next() else {
+    let Some(modpack) = download_requested_mods(&packs_dir, &mut vec![install_modpack], &client, None).await?.into_iter().next() else {
             return Err(RustiqueError::SimpleError("Modpack download failure..".into()));
         };
 
@@ -147,4 +152,55 @@ pub async fn mp_install(mp_id: ModID, mp_version: Option<ModVersion>) -> Result<
     }
     
     Err(RustiqueError::SimpleError("Unable to find installed modpack".into()))
+}
+
+
+pub async fn mp_install_missing_deps(mpk_id: ModID) -> Result<(), RustiqueError> {
+    // iterate through all the modpacks and for each one check the dependencies.
+    // if the installed/modpack folder is missing, create it and download all deps without checking
+    
+    // use a write here as we need to update the config IF the modpack wasn't installed via the modpack install command 
+    let config = get_config().read().await;
+    
+    let modpack_dir = config.modpacks.modpack_dir.clone();
+    drop(config);
+    let modpack_dir = Path::new(&modpack_dir);
+    let packs_dir = modpack_dir.join("packs");
+   
+    // check if the modpack is in the packs dir
+    
+    let packs_data = extract_all_mods_metadata(&packs_dir, false).await?;
+    
+    
+    for (_, pack_info) in packs_data {
+        if pack_info.mod_id.eq_ignore_ascii_case(&mpk_id) {
+            // check if mpk has a installed/mpk-id folder
+            let mpk_mods_dir = modpack_dir.join("installed").join(&mpk_id);
+            if !mpk_mods_dir.exists() {
+                tokio::fs::create_dir_all(&mpk_mods_dir).await?;
+            }
+            
+            
+            match install_missing_deps(&packs_dir, vec![mpk_id.clone()], &mpk_mods_dir).await {
+                Ok(()) => {
+                    let mut config = get_config().write().await;
+                    // update the config file now
+                    if !config.modpacks.disabled.contains(&mpk_id) {
+                        config.modpacks.disabled.push(mpk_id.clone());
+                    }
+                    
+                    config.save(None)?;
+                    drop(config);
+                    
+                    notice(format!("The dependencies for {mpk_id} have been installed! You can now enable this modpack."), Some(Color::Green), vec![Attribute::Bold]);
+                }
+                Err(e) => {
+                   error!("Failed to install dependencies for {mpk_id}: {e}"); 
+                }
+            }
+        }
+    }
+    
+  
+    Ok(())
 }

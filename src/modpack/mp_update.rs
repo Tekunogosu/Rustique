@@ -66,7 +66,7 @@ pub async fn mp_update(args: MPUpdateArgs) -> Result<(), RustiqueError> {
     
     debug!("{} {:#?}","m_install".green(), m_install.blue());
 
-    let installed = match download_requested_mods(&pack_dir, &mut vec![m_install], &client).await {
+    let installed = match download_requested_mods(&pack_dir, &mut vec![m_install], &client, None).await {
         Ok(i) => {
             // delete the old file if its named differently from the new
             // there is only 1 file as we only process 1 modpack at a time

@@ -1,3 +1,7 @@
+# Version 0.5.4-alpha
+* Added progress bars for mod api fetches and downloading of mod files. Will possible add more in other sections at a later time.
+* Added new flag; `Rustique modpack install --missing-dependencies mpkid`. This helps download mods for a modpack that you install manually. 
+
 # Version 0.5.3-alpha
 * Fixed regression bug where sync would not lowercase the modid after making the API calls for the mods. This caused the sync file to create a new entry that didn't have the required information to update these types of mods.
 

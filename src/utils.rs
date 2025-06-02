@@ -242,6 +242,7 @@ pub async fn extract_all_mods_metadata(mod_dir: impl PathRef, ignore_symlink: bo
       Ok(results.into_iter().collect())
 }
 
+
 pub async fn verify_zip_file(file_path: impl PathRef) -> Result<(), RustiqueError> {
     // Open and verify the zip file integrity
     let file_path = file_path.as_ref();

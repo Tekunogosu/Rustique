@@ -1,29 +1,32 @@
 use crate::api::client::ApiClient;
 use crate::install_manager::{Install, Installed};
 use crate::rustique_errors::RustiqueError;
-use crate::utils::{verify_zip_file};
 use owo_colors::OwoColorize;
 use std::path::{Path, PathBuf};
+use indicatif::ProgressBar;
 use tokio::io::AsyncWriteExt;
 use tracing::{debug,info, warn};
 use url::Url;
 use crate::rustique_errors::RustiqueError::UrlParseError;
 use crate::traits::ref_ext::PathRef;
 
-pub async fn download_requested_mods(mod_dir: &Path, mods_requested: &mut Vec<Install>, api_client: &ApiClient) -> Result<Vec<Installed>, RustiqueError> {
+
+pub async fn download_requested_mods(mod_dir: &Path, mods_requested: &mut Vec<Install>, api_client: &ApiClient, pb: Option<&ProgressBar>) -> Result<Vec<Installed>, RustiqueError> {
 
     let mut tasks = Vec::with_capacity(mods_requested.len());
 
     // create the outgoing vec with a capacity of what's being requested as we know it ahead of time
-
-
+    
     while let Some(mod_request) = mods_requested.pop() {
 
+        
         info!("{} {}", "Attempting to download mod".bright_green(), mod_request.mod_id.to_string().bright_yellow());
 
         let client = api_client.clone();
         let dir = mod_dir.to_path_buf();
-
+        
+        let pb_clone = pb.cloned();
+        
         let task = tokio::spawn(async move {
 
             let mut installed = Installed {
@@ -39,12 +42,22 @@ pub async fn download_requested_mods(mod_dir: &Path, mods_requested: &mut Vec<In
                 Ok(installed_path) => {
 
                     info!("{} {}: {}", "Successfully downloaded mod".bright_green(), mod_request.mod_id.magenta(), installed_path.display().to_string().bright_yellow());
+                    if let Some(p) = &pb_clone {
+                        p.set_message(format!("Downloaded {}", mod_request.mod_id.bright_green()));
+                        p.inc(1);
+                    }
+                    
                     installed.installed_file_path = Some(installed_path);
                     installed.success = true;
                     installed.clone()
                 }
                 Err(e) => {
                     warn!("Failed to download mod: {}, {}", mod_request.download_url, e);
+                    if let Some(p) = &pb_clone {
+                        p.set_message(format!("Failed download: {}", mod_request.mod_id.bright_red()));
+                        p.inc(1);
+                    }
+                    
                     installed.clone()
                 }
             }
@@ -52,6 +65,8 @@ pub async fn download_requested_mods(mod_dir: &Path, mods_requested: &mut Vec<In
 
         tasks.push(task);
     }
+    
+    
 
     let mut result: Vec<Installed> = Vec::with_capacity(tasks.len());
     for task in tasks {
@@ -61,13 +76,12 @@ pub async fn download_requested_mods(mod_dir: &Path, mods_requested: &mut Vec<In
         }
     }
 
-
     Ok(result)
 }
 
 
 
-async fn download_mod(mod_dir: &Path, download_url: String, api_client: &ApiClient) -> Result<PathBuf, RustiqueError> {
+pub async fn download_mod(mod_dir: &Path, download_url: String, api_client: &ApiClient) -> Result<PathBuf, RustiqueError> {
     let filename_from_api = &download_url.split('=').next_back().unwrap_or_default();
 
     // Replace any spaces in the downloaded file with _ . This makes it easier to process later
@@ -105,7 +119,8 @@ async fn download_mod(mod_dir: &Path, download_url: String, api_client: &ApiClie
                     }
                 }
 
-                last_error = Some(e);
+                // last_error = Some(e);
+                info!("{} {} {}", "Download failed on attempt ".yellow(), attempt.to_string().magenta(), e.to_string().red());
 
                 // Add a small delay between retries
                 if attempt < max_retries {
@@ -118,7 +133,7 @@ async fn download_mod(mod_dir: &Path, download_url: String, api_client: &ApiClie
     Err(last_error.unwrap_or_else(|| RustiqueError::SimpleError("Maximum retries exceeded".to_string())))
 }
 
-async fn download_and_verify(url: &Url, file_path: impl PathRef, api_client: &ApiClient) -> Result<PathBuf, RustiqueError> {
+pub async fn download_and_verify(url: &Url, file_path: impl PathRef, api_client: &ApiClient) -> Result<PathBuf, RustiqueError> {
     let file_path = file_path.as_ref();
     let response = api_client.get_request(url.as_ref()).await
         .map_err(|e| RustiqueError::SimpleError(e.to_string()))?;
@@ -168,7 +183,7 @@ async fn download_and_verify(url: &Url, file_path: impl PathRef, api_client: &Ap
     drop(file);
 
     // Pre-verify the zip file
-    verify_zip_file(&temp_file_path).await?;
+    // verify_zip_file(&temp_file_path).await?;
 
     // Rename temp file to final file
     tokio::fs::rename(&temp_file_path, file_path).await
