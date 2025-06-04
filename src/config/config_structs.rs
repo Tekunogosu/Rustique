@@ -326,10 +326,11 @@ pub enum ListColumn {
     PinnedVersion,
     HasBackup,
     Filename,
+    ModURL,
 }
 
 impl ListColumn {
-    fn as_str(&self) -> &'static str {
+    pub fn as_str(&self) -> &'static str {
         match self {
             Self::Name          => "name",
             Self::ModId         => "mod_id",
@@ -346,6 +347,7 @@ impl ListColumn {
             Self::LastUpdateRemote  => "last_update_remote",
             Self::HasBackup         => "has_backup",
             Self::Filename          => "filename",
+            Self::ModURL            => "mod_url",      
         }
     }
 }
@@ -370,6 +372,7 @@ impl FromStr for ListColumn {
             "pinned_version"     => Ok(Self::PinnedVersion),
             "has_backup"         => Ok(Self::HasBackup),
             "filename"           => Ok(Self::Filename),
+            "mod_url"           => Ok(Self::ModURL),
             _ => Err(()),
         }
     }
@@ -393,6 +396,7 @@ impl Display for ListColumn {
             ListColumn::LastUpdateRemote    => write!(f, "last_update_remote"),
             ListColumn::HasBackup           => write!(f, "has_backup"),
             ListColumn::Filename            => write!(f, "filename"),
+            ListColumn::ModURL              => write!(f, "mod_url"),
         }
     }
 }
@@ -418,7 +422,7 @@ pub enum SearchColumn {
 
 impl SearchColumn {
     #[allow(unused)]
-    fn as_str(&self) -> &'static str {
+    pub fn as_str(&self) -> &'static str {
         match self {
             Self::Name          => "name",
             Self::ModId         => "mod_id",

@@ -49,7 +49,7 @@ pub async fn mp_install(mp_id: ModID, mp_version: Option<ModVersion>) -> Result<
 
     let installed_dir = Path::new(&config.modpacks.modpack_dir).join("installed");
     
-    let (version, download_url, _) = if let Some(pin_version) = mp_version  {
+    let (version, download_url, _, _) = if let Some(pin_version) = mp_version  {
         let pkg = Package {
             mod_id: mp_id.clone(),
             pinned_version: Some(pin_version),

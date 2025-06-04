@@ -28,7 +28,7 @@ pub async fn parse_modpack_commands(commands: &ModpackCommands, mod_dir: impl Pa
                     exit(1);
                 }
             };
-            match mp_create(&mod_dir, &mut parse_args, args.save_path.clone(), args.copy_mods, args.ignore_modpacks, args.include_configs, args.copy_configs).await {
+            match mp_create(&mod_dir, &mut parse_args, args.save_path.clone(), args.copy_mods, args.ignore_modpacks).await {
                 Ok((zip_location, mods_location)) => {
                     display_table(vec![
                         command_output("Your modpack has been created and saved to:", zip_location.display().to_string()),
@@ -132,7 +132,7 @@ pub async fn parse_modpack_commands(commands: &ModpackCommands, mod_dir: impl Pa
         ModpackSubCommands::List(args) => {
             let config = get_config().read().await;
             let packs_path = Path::new(&config.modpacks.modpack_dir).join("packs");
-            match cmd_list(&packs_path, args.updates, true, false).await {
+            match cmd_list(&packs_path, args.updates, true, false, args.output_commands.columns.clone(), args.output_commands.output.clone(), args.output_commands.file_path.clone()).await {
                 Ok(()) => {}
                 Err(e) => {
                     
@@ -163,11 +163,11 @@ pub async fn parse_modpack_commands(commands: &ModpackCommands, mod_dir: impl Pa
         
         ModpackSubCommands::Local(args) => {
             match &args.subcommands {
-                MPLocalSubCommands::List => {
+                MPLocalSubCommands::List(largs) => {
                     let config = get_config().read().await;
                     let packs_path = Path::new(&config.modpacks.modpack_dir).join("mypacks");
                     
-                    match cmd_list(&packs_path, false, true, true).await {
+                    match cmd_list(&packs_path, false, true, true, largs.output_commands.columns.clone(), largs.output_commands.output.clone(), largs.output_commands.file_path.clone()).await {
                         Ok(()) => {}
                         Err(e) => {
                             error!("{}", e.to_string().red().bold());

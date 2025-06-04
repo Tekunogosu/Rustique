@@ -10,4 +10,4 @@ pub type UrlString = String;
 
 pub type Tags = Vec<String>;
 /// Used with the parse_{pinned,latest}_version functions
-pub type PinnedVersionInfo = (ModVersion, DownloadURL, Tags);
+pub type PinnedVersionInfo = (ModVersion, DownloadURL, Tags, String);

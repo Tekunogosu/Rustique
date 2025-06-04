@@ -1,12 +1,13 @@
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
 use comfy_table::presets::UTF8_FULL_CONDENSED;
 use comfy_table::{CellAlignment, Color, ContentArrangement, Row, Table};
-use crate::api::api_structs::Releases;
+use crate::api::api_structs::Release;
 use crate::api::client::ApiClient;
 use crate::commands::arg_structs::info_args::ModInfoArgs;
 use crate::config::config_structs::{CellAttr, CellColor};
 use crate::information_utils::{notice, prep_cell};
 use crate::rustique_errors::RustiqueError;
+use crate::utils::html_parse;
 
 pub async fn info(args: &ModInfoArgs) -> Result<(), RustiqueError> {
 
@@ -115,8 +116,7 @@ pub async fn info(args: &ModInfoArgs) -> Result<(), RustiqueError> {
         if args.show_description {
             let mut t2 = table.clone();
             // t2.load_preset(UTF8_HORIZONTAL_ONLY);
-            let t2_txt = html2text::from_read(&mut mod_info.text.clone().unwrap_or_default().as_bytes(), 100)
-                .map_err(|_| RustiqueError::SimpleError("html2txt failed".to_string()))?;
+            let t2_txt = html_parse(&mut mod_info.text.clone().unwrap_or_default(), 100)?;
             t2.add_row(Row::from(vec![prep_cell(&t2_txt, Some(CellColor::Yellow), None, None, Some(CellAlignment::Left))]));
 
             println!("{t2}");
@@ -134,7 +134,7 @@ pub async fn info(args: &ModInfoArgs) -> Result<(), RustiqueError> {
         let rels = if args.show_versions == 0  {
             &mod_info.releases
         } else {
-            &mod_info.releases.iter().take(args.show_versions).cloned().collect::<Vec<Releases>>()
+            &mod_info.releases.iter().take(args.show_versions).cloned().collect::<Vec<Release>>()
         };
        
         for (index, mv) in rels.iter().enumerate() {

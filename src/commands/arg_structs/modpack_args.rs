@@ -1,6 +1,6 @@
 use clap::{Args, Subcommand};
 use crate::commands::arg_structs::info_args::ModInfoArgs;
-use crate::commands::arg_structs::list_args::ListArgs;
+use crate::commands::arg_structs::list_args::{ListArgs, ListOutputArgs};
 
 #[derive(Args, Debug)]
 pub struct ModpackCommands {
@@ -116,13 +116,13 @@ pub struct MPCreateArgs {
     #[arg(short = 'C', long, default_value = "false")]
     pub copy_mods: bool,
 
-    /// *Optional* Includes ALL configs found in VintagestoryData/ModConfig. Before you enable this, make sure ALL the configs are the ones you want.
-    #[arg(short = 'i', long, default_value = "false")]
-    pub include_configs: bool,
-
-    /// *Optional* Use with --include_configs. By default --include-configs MOVES the configs, this flag will COPY instead.
-    #[arg(short = 'G', long, requires = "include_configs", default_value = "false")]
-    pub copy_configs: bool,
+    // /// *Optional* Includes ALL configs found in VintagestoryData/ModConfig. Before you enable this, make sure ALL the configs are the ones you want.
+    // #[arg(short = 'i', long, default_value = "false")]
+    // pub include_configs: bool,
+    // 
+    // /// *Optional* Use with --include_configs. By default --include-configs MOVES the configs, this flag will COPY instead.
+    // #[arg(short = 'G', long, requires = "include_configs", default_value = "false")]
+    // pub copy_configs: bool,
 }
 
 
@@ -173,16 +173,23 @@ pub struct MPInfo {}
 #[derive(Args, Debug, Clone)]
 pub struct MPLocalArgs {
     #[command(subcommand)]
-    pub subcommands: MPLocalSubCommands
+    pub subcommands: MPLocalSubCommands,
+
+
 }
 
 #[derive(Subcommand, Debug, Clone)]
 pub enum MPLocalSubCommands {
     /// List all locally created modpacks. It ONLY shows the modpacks you've created, use `Rustique modpack list` to see the modpacks you installed.
-    List,
+    List(MPLocalListOutputArgs),
     
     /// This feature is being worked on...
     Delete,
 }
 
+#[derive(Args, Debug, Clone)]
+pub struct MPLocalListOutputArgs {
+    #[clap(flatten)]
+    pub output_commands: ListOutputArgs
+}
 

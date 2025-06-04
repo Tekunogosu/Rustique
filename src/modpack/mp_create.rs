@@ -46,7 +46,7 @@ pub fn collect_mp_create_args(args: &MPCreateArgs) -> Result<ModInfo, RustiqueEr
 // If those mods were created from a symlink,
 
 #[allow(clippy::fn_params_excessive_bools)]
-pub async fn mp_create(mod_dir: impl PathRef + Copy, mod_pack: &mut ModInfo, save_location: Option<impl PathRef>, copy_mods: bool, ignore_modpacks: bool, include_configs: bool, copy_configs: bool) -> Result<(PathBuf, PathBuf), RustiqueError> {
+pub async fn mp_create(mod_dir: impl PathRef + Copy, mod_pack: &mut ModInfo, save_location: Option<impl PathRef>, copy_mods: bool, ignore_modpacks: bool) -> Result<(PathBuf, PathBuf), RustiqueError> {
     
     let config = get_config().write().await;
     let modpack_dir = config.modpacks.modpack_dir.clone();

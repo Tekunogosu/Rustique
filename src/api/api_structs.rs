@@ -145,7 +145,8 @@ impl ModInfo {
         
         Ok(())
     }
-    
+   
+    #[allow(dead_code)]
    async fn add_dir_to_zip(&self, zip: &mut ZipFileWriter<File>, dir_path: impl PathRef, zip_prefix: &str) -> Result<(), RustiqueError> {
         
         let mut entries = tokio::fs::read_dir(dir_path.as_ref()).await
@@ -206,8 +207,7 @@ impl ModsSearchFile {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[derive(Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct ModApi {
     #[serde(default, rename = "modid", alias = "mod_id")]
     pub mod_id: i64,
@@ -313,13 +313,13 @@ pub struct ApiModJson {
     #[serde(default)]
     pub tags: Vec<String>,
     #[serde(default)]
-    pub releases: Vec<Releases>,
+    pub releases: Vec<Release>,
     #[serde(default)]
     pub screenshots: Vec<Screenshots>,
 }
 
 #[derive(Deserialize, Serialize, Debug, PartialEq, Clone)]
-pub struct Releases {
+pub struct Release {
     #[serde(default, rename = "release_id")]
     pub release_id: i64,
     #[serde(default, rename = "mainfile")]

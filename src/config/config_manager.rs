@@ -1,5 +1,5 @@
 use crate::rustique_errors::RustiqueError;
-use crate::utils::RustiqueOptions;
+use crate::RustiqueOptions;
 use chrono::Local;
 use comfy_table::{Attribute, CellAlignment, Color};
 use dirs::home_dir;
@@ -19,6 +19,7 @@ use crate::traits::ref_ext::PathRef;
 
 #[derive(Deserialize, Serialize, Debug)]
 #[allow(clippy::struct_excessive_bools)]
+#[serde(default)]
 pub struct Config {
     /// this sets the default mod dir so you don't have to type -m everytime
     #[serde(default)]
@@ -38,7 +39,10 @@ pub struct Config {
     // default ~/.config/rustique/backups
     #[serde(default)]
     pub backup_mods_dir: String,
-
+    
+    
+    #[cfg(windows)]
+    pub update_default_windows_loc: bool,
     
     
     // Shows the "<operation> completed: " text after a command finishes
@@ -57,7 +61,6 @@ pub struct Config {
     #[serde(default)]
     pub modpacks: ModPacks,
     
-    
     #[serde(default)]
     pub pkg: Vec<Package>,
    
@@ -69,8 +72,11 @@ pub struct Config {
 
     #[serde(default)]
     pub table: Tables,
-    
-    
+}
+
+#[cfg(windows)]
+fn default_true() -> bool {
+    true
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -156,6 +162,9 @@ impl Default for Config {
             table: Tables::with_defaults(),
             modpacks: ModPacks::default(),
             check_for_updates: true,
+            
+            #[cfg(windows)]
+            update_default_windows_loc: true,
         }
     }
 }

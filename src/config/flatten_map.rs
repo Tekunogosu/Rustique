@@ -52,14 +52,11 @@ impl FlattenMap
     }
 
     pub fn with(&mut self, key: &str, color: Option<CellColor>, attribute: Option<CellAttr>) -> &mut Self {
-        self.0.insert(key.to_string(), ColumnProperties {color, attribute});
+        self.0.insert(key.to_string(), ColumnProperties { color, attribute });
         self
     }
-    
-    // pub fn iter(&self) -> impl Iterator<Item = (&String, &ColumnProperties)> {
-    //     self.0.iter()
-    // }
 }
+
 impl<'de> Deserialize<'de> for FlattenMap {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

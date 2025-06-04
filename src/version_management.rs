@@ -1,5 +1,5 @@
 use crate::aliases::{DownloadURL, ModID, ModVersion, PinnedVersionInfo};
-use crate::api::api_structs::{Releases};
+use crate::api::api_structs::{Release};
 use crate::rustique_errors::RustiqueError;
 use semver::{Version};
 use serde::{Deserialize, Serialize};
@@ -26,9 +26,10 @@ pub struct LatestVersionFound {
     pub latest_version: Version,
     pub download_url: Option<String>,
     pub game_versions: Vec<String>,
+    pub changelog: Option<String>,
 }
 
-pub fn parse_latest_version(releases: &[Releases]) -> PinnedVersionInfo {
+pub fn parse_latest_version(releases: &[Release]) -> PinnedVersionInfo {
     let mut errors :Vec<RustiqueError> = Vec::new();
 
     // TODO: Review for version pinning, the error needs to be handled better for that
@@ -39,23 +40,22 @@ pub fn parse_latest_version(releases: &[Releases]) -> PinnedVersionInfo {
                 return None;
             };
             
-            
             // Check if this mod has a pinned version and return the max by that version
-
             // only clone when passing to parse_version if required
             match parse_version(&version_str.clone()) {
-                Ok(version) => Some((version, release.main_file.clone(), release.tags.clone())),
+                Ok(version) => Some((version, release.main_file.clone(), release.tags.clone(), release.changelog.clone())),
                 Err(e) => {
                     errors.push(e);
                     None
                 }
             }
         })
-        .max_by(|(v1,_,_), (v2,_,_)| v1.cmp(v2))
-        .map(|(latest_version, download_url, game_versions)| LatestVersionFound {
+        .max_by(|(v1,_,_,_), (v2,_,_,_)| v1.cmp(v2))
+        .map(|(latest_version, download_url, game_versions, changelog)| LatestVersionFound {
             latest_version,
             download_url,
             game_versions,
+            changelog,
         });
 
     if !errors.is_empty() {
@@ -68,7 +68,7 @@ pub fn parse_latest_version(releases: &[Releases]) -> PinnedVersionInfo {
     return_version_results(result)
 }
 
-pub fn parse_download_url_from_version<V: AsRef<[Releases]>>(releases: V, version: &str) -> Result<DownloadURL, RustiqueError> {
+pub fn parse_download_url_from_version<V: AsRef<[Release]>>(releases: V, version: &str) -> Result<DownloadURL, RustiqueError> {
     releases.as_ref()
         .iter()
         .find_map(|release| {
@@ -86,7 +86,7 @@ pub fn parse_version(mod_version: &str) -> Result<Version, RustiqueError> {
 
 
 /// retrieve a version based on version pinning information. 
-pub fn parse_pinned_version(releases: &Vec<Releases>, mod_pkg: &Package, pinned_game_version: impl StrRef) -> PinnedVersionInfo {
+pub fn parse_pinned_version(releases: &Vec<Release>, mod_pkg: &Package, pinned_game_version: impl StrRef) -> PinnedVersionInfo {
     // user should be using Rustique itself to set pinned_game_version so we trust that its valid, otherwise this function
     // will not return the correct version
 
@@ -150,31 +150,33 @@ pub fn parse_pinned_version(releases: &Vec<Releases>, mod_pkg: &Package, pinned_
 
     let final_res = mres.iter().filter_map(|r| {
         match parse_version(r.mod_version.as_ref().unwrap()) {
-            Ok(v) => Some((v, r.main_file.clone(), r.tags.clone())),
+            Ok(v) => Some((v, r.main_file.clone(), r.tags.clone(), r.changelog.clone())),
             Err(e) => {
                 info!("{} {}","parse_pinned_version-final_res:".bright_yellow(), e.red().bold());
                 None
             }
         }
-    }).max_by(|(v1,_, _),(v2,_,_)| v1.cmp(v2))
-      .map(|(latest_version, download_url, game_versions)| LatestVersionFound { 
+    }).max_by(|(v1,_,_, _),(v2,_,_,_)| v1.cmp(v2))
+      .map(|(latest_version, download_url, game_versions, changelog)| LatestVersionFound { 
           latest_version, 
           download_url: download_url.clone(), 
-          game_versions 
+          game_versions,
+          changelog
       });
 
 
     return_version_results(final_res)
 }
 
-fn return_version_results(result: Option<LatestVersionFound>) -> (ModVersion, DownloadURL, Vec<String>) {
+fn return_version_results(result: Option<LatestVersionFound>) -> (ModVersion, DownloadURL, Vec<String>, String) {
     match result {
         Some(latest_versions_found) => (
             latest_versions_found.latest_version.to_string(),
             latest_versions_found.download_url.clone().unwrap_or_default(),
-            latest_versions_found.game_versions
+            latest_versions_found.game_versions,
+            latest_versions_found.changelog.unwrap_or(String::new())
         ),
-        None => (String::new(), String::new(), Vec::new())
+        None => (String::new(), String::new(), Vec::new(), String::new())
     }
 }
 

@@ -19,6 +19,7 @@ mod modpack;
 mod config;
 mod consts;
 mod updater;
+mod rustique_options;
 
 use crate::cli_commands::{Cli, Commands, ShellType};
 use config::config::parse_config_args;
@@ -26,7 +27,8 @@ use crate::commands::install::{install_cmd, install_missing_deps};
 use crate::commands::list::cmd_list;
 use crate::commands::sync::{daily_file_syncs, game_version_sync};
 use crate::logging::{init_logging, VerboseLevel};
-use crate::utils::{get_expanded_path, sorted_game_versions, RustiqueOptions};
+use crate::utils::{get_expanded_path, sorted_game_versions};
+use crate::rustique_options::RustiqueOptions;
 use clap::{CommandFactory, Parser};
 use clap_complete::{generate, Shell};
 use owo_colors::OwoColorize;
@@ -88,12 +90,22 @@ async fn async_main() {
     info!("Before call");
     // Check if the windows path needs to be updated before we do anything else
     #[cfg(windows)]
-    match RustiqueOptions::check_old_default_windows().await {
-        Ok(_) => {}
-        Err(e) => {
-            error!("Error attempting to update default mod path {}", e);
+    {
+        let update_windows_default_loc = {
+            let config = get_config().read().await;
+            config.update_default_windows_loc
+        };
+
+        if update_windows_default_loc {
+            match RustiqueOptions::check_old_default_windows().await {
+                Ok(_) => {}
+                Err(e) => {
+                    error!("Error attempting to update default mod path {}", e);
+                }
+            }
         }
     }
+    
 
     let mod_opts: RustiqueOptions = RustiqueOptions::default();
     let mut mod_dir = mod_opts.get_mod_path().await;
@@ -153,7 +165,7 @@ async fn async_main() {
                 
             } else {
                 handle_err_result(
-                    cmd_list(&mod_dir, args.updates, false, false).await, 
+                    cmd_list(&mod_dir, args.updates, false, false, args.output_commands.columns.clone(), Option::from(args.output_commands.output.clone()), args.output_commands.file_path.clone()).await,
                     "Failed to display list",
                     true,
                     ErrorMsgFn::Error

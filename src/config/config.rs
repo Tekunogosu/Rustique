@@ -191,6 +191,13 @@ async fn set(args: &CommonArgs) {
         save = true;
         display_vec.push(command_output("config.check_for_updates", args.check_for_updates.clone().unwrap_or_default().to_string()));
     }
+
+    #[cfg(windows)]
+    if let Some(show) = args.update_default_windows_loc {
+        config.update_default_windows_loc = show;
+        save = true;
+        display_vec.push(command_output("config.update_default_windows_loc", show.to_string()));
+    }
     
     if !display_vec.is_empty() {
         display_table(display_vec, None);
@@ -311,6 +318,10 @@ async fn list() {
         command_output("config.pinned_game_version",     config.pinned_game_version.to_string()),
         command_output("",""),
         command_output("config.check_for_updates",       config.check_for_updates.to_string()),
+
+        #[cfg(windows)] 
+        command_output("config.update_windows_default_loc", config.update_default_windows_loc.to_string()),
+
         command_output("",""),
         command_output("config.modpacks.modpack_dir",    config.modpacks.modpack_dir.to_string()),
         command_output("config.modpacks.enabled",        config.modpacks.enabled.join(",")),

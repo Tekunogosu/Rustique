@@ -198,6 +198,8 @@ impl RustiqueUpdater {
         Ok(backup_path.clone())
     }
 
+    
+    #[allow(dead_code)]
     pub async fn restore_backup(&self, backup_path: impl PathRef) -> Result<(), RustiqueError> {
         // with_extension("") to remove the .backup added
         fs::copy(backup_path, &self.current_binary_path.with_extension("")).await?;

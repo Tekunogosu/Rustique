@@ -116,8 +116,13 @@ pub struct CommonArgs {
     pub modpack_enabled: Option<String>,
 
 
+    /// Do you want rustique to check for updates automatically?
     #[arg(short, long, action = ArgAction::Set, value_parser = clap::value_parser!(bool), value_name = "CHECK")]
     pub check_for_updates: Option<bool>,
+    
+    // #[cfg(windows)]
+    #[arg(short, long, value_parser = clap::value_parser!(bool), value_name = "SHOW")]
+    pub update_default_windows_loc: Option<bool>
 }
 
 #[derive(Args, Debug)]
@@ -170,5 +175,9 @@ pub struct DelArgs {
     /// Remove a modpack id from the modpacks.enabled list. ONLY do this if rustique and the config are out of sync and your modpack doesn't exist anymore.
     #[arg(long, value_name = "MPK_ID")] 
     pub modpack_enabled: Option<String>,
+    
+    // #[cfg(windows)]
+    #[arg(short, long, value_parser = clap::value_parser!(bool), value_name = "SHOW")]
+    pub update_default_windows_loc: Option<bool>
 }
 

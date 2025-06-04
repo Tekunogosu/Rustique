@@ -66,7 +66,7 @@ pub async fn install_cmd(mod_dir: impl PathRef, mods_requested: Vec<ModID>, _for
             
             let pinned_game_ver = &config.pinned_game_version;
             
-            let (version, download_url, _) = parse_pinned_version(&mod_info.mod_json.releases, &pkg, pinned_game_ver);
+            let (version, download_url, _,_) = parse_pinned_version(&mod_info.mod_json.releases, &pkg, pinned_game_ver);
             
             Install {
                 mod_id: mod_id.clone(),
@@ -126,7 +126,7 @@ pub async fn install_missing_deps<V: AsRef<[ModID]>>(mod_dir_for_req: impl PathR
     for mod_info in &mut missing_deps {
         if let Some(data) = result.get(&mod_info.mod_id) {
             mod_info.mod_name = data.mod_json.name.clone().unwrap_or_default();
-            let (version, download_url, _) = parse_latest_version(&data.mod_json.releases);
+            let (version, download_url, _,_) = parse_latest_version(&data.mod_json.releases);
             mod_info.download_url = download_url;
             mod_info.version_to_install = version;
         }

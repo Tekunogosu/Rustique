@@ -81,6 +81,7 @@ pub struct ModSyncInfo {
     pub latest_known_version: ModVersion,
     pub latest_download_url: String,
     pub game_versions: Vec<String>,
+    pub latest_changelog: String,
     
     #[serde(default)]
     pub is_symlink: bool
@@ -104,8 +105,11 @@ pub async fn get_sync_data(mod_dir: impl PathRef, quiet: bool) -> Result<Rustiqu
     let mod_dir = mod_dir.as_ref();
     let fp = mod_dir.join(PathBuf::from(FILE_RUSTIQUE_SYNC));
     if !fp.exists() {
+        info!("Sync file doesn't exist, running sync");
         sync(mod_dir, quiet, vec![]).await?;
     }
+    
+    info!("Sync file located: {fp:?}");
 
     parse_json_file::<RustiqueSyncJson>(&fp).await
 }
@@ -228,6 +232,7 @@ pub async fn sync<V: AsRef<[Package]>>(mod_dir: impl PathRef, quiet: bool, pin_v
                 latest_known_version: String::new(),
                 game_versions: Vec::new(),
                 is_symlink: SymlinkManager::exists(mod_dir.join(mod_filename)),
+                latest_changelog: String::new(),
             });
     }
     
@@ -255,7 +260,7 @@ pub async fn sync<V: AsRef<[Package]>>(mod_dir: impl PathRef, quiet: bool, pin_v
             pin_versions.as_ref().iter().find(|p| p.mod_id.eq(&mod_id)).cloned().unwrap_or_default()
         };
         
-        let (mod_version, download_url, game_versions) = if !pkg.mod_id.is_empty() || !config.pinned_game_version.is_empty() {
+        let (mod_version, download_url, game_versions, changelog) = if !pkg.mod_id.is_empty() || !config.pinned_game_version.is_empty() {
             info!("Parsing pinned versions for {mod_id}");
             parse_pinned_version(&res_mod.mod_json.releases, &pkg, config.pinned_game_version.clone())
         } else {
@@ -270,12 +275,14 @@ pub async fn sync<V: AsRef<[Package]>>(mod_dir: impl PathRef, quiet: bool, pin_v
                 sync_info.latest_known_version.clone_from(&mod_version);
                 sync_info.latest_download_url.clone_from(&download_url);
                 sync_info.game_versions.clone_from(&game_versions);
+                sync_info.latest_changelog.clone_from(&changelog);
             })
             .or_insert_with(|| ModSyncInfo {
                 latest_known_version: mod_version,
                 latest_download_url: download_url,
                 mod_name: res_mod.mod_json.name.clone().unwrap_or_default(),
                 game_versions,
+                latest_changelog: changelog,
                 .. Default::default()
             });
     }
