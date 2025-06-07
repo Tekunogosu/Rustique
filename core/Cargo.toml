@@ -1,0 +1,27 @@
+[package]
+name = "core"
+version = "0.5.5"
+edition = "2024"
+
+[dependencies]
+clap = {workspace = true}
+serde = {workspace = true}
+serde_json = {workspace = true}
+tokio = {workspace = true}
+async_zip = {workspace = true}
+reqwest = {workspace = true}
+owo-colors = {workspace = true}
+chrono = {workspace = true}
+indicatif = {workspace = true}
+futures = {workspace = true}
+tracing = {workspace = true}
+toml = {workspace = true}
+serde_json5 = {workspace = true}
+url = {workspace = true}
+comfy-table = {workspace = true}
+semver = {workspace = true}
+lenient_semver = {workspace = true}
+num_cpus = "1.16.0"
+dirs = {workspace = true}
+html2text = {workspace = true}
+indexmap = {workspace = true}

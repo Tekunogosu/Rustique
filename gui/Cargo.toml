@@ -1,0 +1,14 @@
+[package]
+name = "gui"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "gRustique"
+path = "src/main.rs"
+
+
+[dependencies]
+iced = { version = "0.13.1", features = ["fira-sans", "tokio", "system", "image", "multi-window"] }
+core = {path = "../core" }
+tokio = {workspace = true}
