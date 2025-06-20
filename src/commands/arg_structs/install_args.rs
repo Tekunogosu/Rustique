@@ -18,7 +18,8 @@ pub struct InstallArgs {
     /// This flag will install all missing dependencies found within your mod directory
     #[arg(short, long, default_value = "false")]
     pub(crate) missing_dependencies: bool,
-    
+   
+    #[cfg(unix)]
     /// This is only used with the 1-click installer to wait for a keypress to keep the terminal open during installation. 
     #[arg(short, default_value = "false")]
     pub wait: bool,

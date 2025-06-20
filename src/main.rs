@@ -255,7 +255,8 @@ async fn async_main() {
             if config.show_execution_time {
                 elapsed_footer(start_time, "Install");
             }
-            
+           
+            #[cfg(unix)]
             if args.wait {
                 println!("Press enter to exit...");
                 stdin().read_line(&mut String::new()).unwrap();
@@ -267,6 +268,7 @@ async fn async_main() {
         Commands::Misc { gen_auto_complete: Some(shell), .. } => {
             generate_completion(shell.clone());
         }
+        #[cfg(unix)]
         Commands::Misc { one_click_setup: true, .. } => {
             one_click_setup();
         }
