@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Rustique Mod Manager
+Exec={RUSTIQUE_PATH} install %u -w
+Terminal=true
+StartupNotify=False
+MimeType=x-scheme-handler/vintagestorymodinstall;

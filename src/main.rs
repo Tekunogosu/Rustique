@@ -52,12 +52,12 @@ use commands::sync::sync;
 use commands::update::update_mods;
 use config::config::parse_config_args;
 use owo_colors::OwoColorize;
-use std::env::home_dir;
 use std::fs::File;
-use std::io::{self, ErrorKind, Write};
+use std::io::{self, stdin, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, exit};
 use std::time::Instant;
+use dirs::home_dir;
 use tracing::{debug, error, info, warn};
 
 fn main() {
@@ -71,6 +71,7 @@ fn main() {
     rt.block_on(async_main());
 }
 
+#[allow(clippy::too_many_lines)]
 async fn async_main() {
     let cli = Cli::parse();
     let verbosity = if cli.debug {
@@ -196,7 +197,7 @@ async fn async_main() {
                         false,
                         false,
                         args.export_args.columns.clone(),
-                        Option::from(args.export_args.export_as.clone()),
+                        args.export_args.export_as.clone(),
                         args.export_args.file_path.clone(),
                     )
                     .await,
@@ -254,28 +255,26 @@ async fn async_main() {
             if config.show_execution_time {
                 elapsed_footer(start_time, "Install");
             }
+            
+            if args.wait {
+                println!("Press enter to exit...");
+                stdin().read_line(&mut String::new()).unwrap();
+            }
         }
         Commands::Config(config_cmd) => {
             parse_config_args(config_cmd).await;
         }
-        Commands::Misc {
-            gen_auto_complete: Some(shell),
-            ..
-        } => {
+        Commands::Misc { gen_auto_complete: Some(shell), .. } => {
             generate_completion(shell.clone());
         }
-        Commands::Misc {
-            one_click_setup: true,
-            ..
-        } => {
+        Commands::Misc { one_click_setup: true, .. } => {
             one_click_setup();
         }
         Commands::Info(args) => {
             handle_err_result(
                 info(args).await,
                 "Failed to call Info:",
-                true,
-                ErrorMsgFn::Info,
+                true, ErrorMsgFn::Info,
             );
         }
         Commands::Search(args) => {
@@ -355,25 +354,17 @@ fn generate_completion(shell: ShellType) {
     println!("\n# Completion script generated. To use it:");
     match shell {
         Shell::Bash => {
-            println!(
-                "# Save the above output to ~/.local/share/bash-completion/completions/Rustique"
-            );
-            println!(
-                "# Or run: Rustique misc --gen-auto-complete bash > ~/.local/share/bash-completion/completions/Rustique"
-            );
+            println!("# Save the above output to ~/.local/share/bash-completion/completions/Rustique");
+            println!("# Or run: Rustique misc --gen-auto-complete bash > ~/.local/share/bash-completion/completions/Rustique");
         }
         Shell::Zsh => {
             println!("# Save the above output to ~/.zsh/completion/_Rustique");
-            println!(
-                "# Or run: Rustique misc --gen-auto-complete zsh > ~/.zsh/completion/_Rustique"
-            );
+            println!("# Or run: Rustique misc --gen-auto-complete zsh > ~/.zsh/completion/_Rustique");
             println!("# Then add to your .zshrc: fpath=(~/.zsh/completion $fpath)");
         }
         Shell::Fish => {
             println!("# Save the above output to ~/.config/fish/completions/Rustique.fish");
-            println!(
-                "# Or run: Rustique misc --gen-auto-complete fish > ~/.config/fish/completions/Rustique.fish"
-            );
+            println!("# Or run: Rustique misc --gen-auto-complete fish > ~/.config/fish/completions/Rustique.fish");
         }
         Shell::PowerShell => {
             println!("# Save the above output to a file and source it in your PowerShell profile");
@@ -383,36 +374,32 @@ fn generate_completion(shell: ShellType) {
     }
 }
 
+// Thanks coolcoder613 for the 1-click install setup!
+//
+#[cfg(unix)]
 fn one_click_setup() {
-    let text = format!(
-        "[Desktop Entry]
-Type=Application
-Name=VintageStory 1-click Mod Installer
-Exec={} install %u
-Terminal=true
-StartupNotify=False
-MimeType=x-scheme-handler/vintagestorymodinstall;",
-        std::env::current_exe()
-            .expect("Failed to get current executable path")
-            .to_str()
-            .unwrap()
-    );
-    let dir = home_dir()
-        .expect("Failed to get home directory")
-        .join(".local/share/applications/rustique.desktop");
-    let filepath = match File::create("/usr/share/applications/rustique.desktop") {
-        Ok(_) => "/usr/share/applications/rustique.desktop",
-        Err(e) => match e.kind() {
-            ErrorKind::PermissionDenied => dir.to_str().unwrap(),
-            _ => {
-                error!("Failed to open desktop file: {}", e);
-                dir.to_str().unwrap()
-            }
-        },
+
+    let exe_path = match std::env::current_exe() {
+        Ok(exe_path) => exe_path,
+        Err(e) => {
+            error!("Unable to get Rustique executable path: {e}");
+            exit(1);
+        }
     };
-    match File::create(filepath) {
+
+    let text = include_str!("rustique.desktop")
+        .replace("{RUSTIQUE_PATH}", &exe_path.to_string_lossy());
+    
+    let rustique_desktop_path = if let Some(home) = home_dir() {
+        home.join(".local/share/applications/rustique.desktop")
+    } else {
+        error!("Unable to access your home directory. Check your permissions and try again. ");
+        exit(1);
+    };
+
+    match File::create(rustique_desktop_path) {
         Ok(mut desktop_file) => match desktop_file.write_all(text.as_bytes()) {
-            Ok(_) => {
+            Ok(()) => {
                 let _ = Command::new("xdg-mime")
                     .arg("default")
                     .arg("rustique.desktop")
