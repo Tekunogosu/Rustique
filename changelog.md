@@ -1,3 +1,9 @@
+# Version 0.5.7-alpha
+* Fixed bug #20, where rustique was replacing spaces in the mod directory with underscores, "_", which caused downloads to fail as the path didn't exist.
+
+# Version 0.5.6-alpha
+* **unix only** Added functionality to enable the 1-click install with Rustique for linux. Thanks Coolcoder613!
+
 # Version 0.5.5-alpha
 * **WINDOWS ONLY:** Changed the default path for Windows to `%appdata%/VintagestoryData/Mods`. Originally it was `%appdata%/Vintagestory/Mods`, which is technically works, but the preferred location is VintagestoryData. I was looking at an old wiki page when getting this information initially.
 * **WINDOWS ONLY:** Because of the change to the default mod path for windows, Rustique will now ask if you want to move the mods when you first run Rustique. This will not affect your game in any way, just where the mods get loaded from.
