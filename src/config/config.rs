@@ -12,7 +12,6 @@ use crate::config::config_manager::{get_config, Config, Package};
 use crate::config::config_structs::{CellAttr, CellColor};
 use crate::consts::FILE_GAME_VERSION_SYNC;
 use crate::information_utils::{command_output, display_table, notice, prep_cell, CellData};
-use crate::traits::string_ext::StrLowerExt;
 use crate::version_management::parse_version;
 
 pub async fn parse_config_args(config_cmd: &ConfigCommand) {
@@ -88,13 +87,9 @@ async fn set(args: &CommonArgs) {
         });
 
         game_versions.game_versions.reverse();
-
-        let v = if version.lower_contains("v") {
-            version.to_string()
-        } else {
-            "v".to_owned()+version
-        };
-
+        
+        let v = version.to_lowercase().replace("v", "");
+        
         if game_versions.game_versions.contains(&v) {
             config.pinned_game_version.clone_from(&v);
             save = true;

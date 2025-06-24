@@ -1,3 +1,6 @@
+# Version 0.5.8-alpha
+* Fixed bug with pinning game versions where it expected a 'v' but the modDB updated their game versions to not include the prepended 'v'. This fixes issue #21.
+
 # Version 0.5.7-alpha
 * Fixed bug #20, where rustique was replacing spaces in the mod directory with underscores, "_", which caused downloads to fail as the path didn't exist.
 
