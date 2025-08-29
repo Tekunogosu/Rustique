@@ -17,7 +17,7 @@ lenient_semver = "0.4.2"
 semver = "1.0.26"
 toml = "0.8.22"
 tracing = "0.1.41"
-tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
 reqwest = { version = "0.12.15", features = ["json", "rustls-tls"], default-features = false }
 tokio = { version = "1.44.2", features = ["fs","rt-multi-thread", "macros", "io-util"] }
 clap_complete = "4.5.50"
