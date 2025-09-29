@@ -103,7 +103,7 @@ async fn async_main() {
             };
 
             if update_windows_default_loc {
-                match RustiqueOptions::check_old_default_windows().await {
+                match windows_funcs::check_old_default_windows().await {
                     Ok(_) => {}
                     Err(e) => {
                         error!("Error attempting to update default mod path {}", e);
