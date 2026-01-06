@@ -10,7 +10,7 @@ use std::path::PathBuf;
 use futures::stream::{self, StreamExt};
 use indicatif::{ProgressBar, ProgressStyle};
 use tracing::{debug, error, info};
-use crate::config::config_manager::get_config;
+use crate::config::config_manager::{Package, get_config};
 use crate::consts::FILE_MODINFO_JSON;
 use crate::sync_structs::ModSyncInfo;
 use crate::traits::ref_ext::PathRef;
@@ -215,13 +215,25 @@ pub async fn install_manager(
                 mod_to_install.mod_name = res_mod.mod_json.name.clone().unwrap_or_default();
                 
                 let pkg = config.pkg.iter().find(|p| p.mod_id.eq(&res_mod.mod_json.mod_id.to_string()));
+
+                // TODO: add test for this
                 let (mod_version, download_url, _,_) = if let Some(mod_pkg) = pkg {
                     parse_pinned_version(&res_mod.mod_json.releases, &mod_pkg.clone(), config.pinned_game_version.clone())
                 } else {
                     parse_latest_version(&res_mod.mod_json.releases)
                 };
                 mod_to_install.download_url = download_url;
+
+                // TODO: needs some refactor on deps resolution because modinfo.json 's dep versions are semver constraints
+                // 1. build the version that can suffice the dependency constraints
+                // 2. we need to verify for conflicting deps i.e. ModA depends ModB@v1 and ModC depends on ModB@v2
+                // we can't install install ModB@v2 because it breaks semver
+                // FIXME: should actually resolve the semver constraint, this hack only works for exact match, not for semver constraints
+                // (more at: https://github.com/Tekunogosu/Rustique/issues/40)
+                // FIXME: this is probably not very rust-way of code
+                if mod_to_install.version_to_install == "" {
                 mod_to_install.version_to_install = mod_version;
+                }
             }
         }
         // increase the total length of the progress bar as there are more things to download
