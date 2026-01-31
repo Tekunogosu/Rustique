@@ -22,7 +22,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use std::process::exit;
-use std::ptr::null;
+
 use std::time::Instant;
 use tokio::sync::RwLockReadGuard;
 use tracing::{debug, error, info, warn};
@@ -53,7 +53,7 @@ pub async fn mp_install(mp_id: ModID, mp_version: Option<ModVersion>) -> Result<
 
     if local_packs
         .iter()
-        .any(|(filename, info)| info.mod_id.eq_ignore_ascii_case(&mp_id))
+        .any(|(_, info)| info.mod_id.eq_ignore_ascii_case(&mp_id))
     {
         return install_local_pack(&mp_id, &config, local_packs).await;
     }
@@ -166,9 +166,96 @@ pub async fn mp_install(mp_id: ModID, mp_version: Option<ModVersion>) -> Result<
         
         return Ok(modpack_info.mod_id.clone());
     }
-    
-    Err(RustiqueError::SimpleError("Unable to find installed modpack".into()))
+
+    Err(RustiqueError::SimpleError(
+        "Unable to find installed modpack".into(),
+    ))
 }
+
+async fn install_local_pack(
+    mp_id: &ModID,
+    config: &RwLockReadGuard<'_, Config>,
+    local_packs: HashMap<ModFileName, ModInfo>,
+
+) -> Result<ModID, RustiqueError> {
+    let start_time = Instant::now();
+
+   let  local_pack = local_packs
+        .iter()
+        .filter(|(_, info)| info.mod_id.eq_ignore_ascii_case(&mp_id))
+        .next()
+        .unwrap();
+    info!("Found local modpack: {:?}", local_pack.1.name);
+    let packs_dir = Path::new(&config.modpacks.modpack_dir).join("packs");
+    let client = ApiClient::new();
+    let modpack_mod_path = Path::new(&config.modpacks.modpack_dir)
+        .join("installed")
+        .join(&mp_id);
+
+    if !modpack_mod_path.exists() {
+        info!("Created {modpack_mod_path:?}");
+        fs::create_dir_all(&modpack_mod_path)?;
+    }
+
+    // grab the mod ids from the modpack
+    let mods = local_pack.1.dependencies.keys().cloned().collect();
+    let mod_pkgs: Vec<Package> = local_pack
+        .1
+        .dependencies
+        .iter()
+        .map(|(id, version)| Package {
+            mod_id: id.clone(),
+            pinned_version: Some(version.clone()),
+        })
+        .collect();
+
+    info!("MODS: {mods:?}");
+    let deps = client.fetch_mods_parallel(mods).await?;
+
+    let install_mp_mods: Vec<Install> = deps
+        .iter()
+        .filter_map(|(mod_id, mod_api)| {
+            // grab the mod from the modpack so we can actually download the correct version
+            if let Some((mp_mod_id, mp_mod_version)) = local_pack
+                .1
+                .dependencies
+                .iter()
+                .find(|(dep_mod_id, _)| dep_mod_id.eq(&mod_id))
+            {
+                let download_url = match parse_download_url_from_version(
+                    &mod_api.mod_json.releases,
+                    mp_mod_version,
+                ) {
+                    Ok(download_url) => download_url,
+                    Err(e) => {
+                        warn!("Rustique can't download {}: {}", mp_mod_id.red(), e.red());
+                        return None;
+                    }
+                };
+
+                Some(Install {
+                    mod_id: mod_id.clone(),
+                    mod_name: mod_api.mod_json.name.clone().unwrap_or_default(),
+                    version_to_install: mp_mod_version.clone(),
+                    download_url,
+                    current_file_path: None,
+                })
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    debug!("Need to download {install_mp_mods:#?}");
+
+    let installed = install_manager(&modpack_mod_path, install_mp_mods, HashMap::new()).await?;
+
+    // Mod saved successfully, add it to the disabled mods so we know its installed
+
+    debug!("Successfully installed {installed:#?}");
+
+    sync(packs_dir, false, vec![]).await?;
+    sync(modpack_mod_path, false, mod_pkgs).await?;
 
     display_table(
         vec![command_output(
@@ -184,7 +271,8 @@ pub async fn mp_install(mp_id: ModID, mp_version: Option<ModVersion>) -> Result<
 pub async fn mp_install_missing_deps(mpk_id: ModID) -> Result<(), RustiqueError> {
     // iterate through all the modpacks and for each one check the dependencies.
     // if the installed/modpack folder is missing, create it and download all deps without checking
-    // use a write here as we need to update the config IF the modpack wasn't installed via the modpack install command 
+
+    // use a write here as we need to update the config IF the modpack wasn't installed via the modpack install command
     let config = get_config().read().await;
     
     let modpack_dir = config.modpacks.modpack_dir.clone();

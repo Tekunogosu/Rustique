@@ -1,4 +1,4 @@
-#![feature(path_add_extension)]
+
 #![warn(clippy::perf, clippy::pedantic)]
 #![warn(clippy::manual_string_new)]
 #![allow(
