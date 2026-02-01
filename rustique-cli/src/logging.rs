@@ -18,7 +18,7 @@ pub fn init_logging(verbose: &VerboseLevel) {
             EnvFilter::new("info,Rustique=debug,ureq=info,tokio=info,tokio_runtime=info")
         }
         VerboseLevel::Default => {
-            EnvFilter::new("info,Rustique=warn,ureq=warn,tokio=debug,tokio_runtime=debug")
+            EnvFilter::new("warn,Rustique=warn,ureq=warn,tokio=warn,tokio_runtime=warn")
         }
     };
 
