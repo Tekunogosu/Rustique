@@ -1,5 +1,4 @@
 use std::env;
-use std::sync::Arc;
 use std::time::Duration;
 use comfy_table::{Attribute, CellAlignment, Color};
 use comfy_table::presets::UTF8_HORIZONTAL_ONLY;
@@ -17,18 +16,16 @@ use crate::updater::self_update::RustiqueUpdater;
 const GITHUB_RUSTIQUE_URI: &str = "https://api.github.com/repos/Tekunogosu/Rustique/releases";
 
 pub struct GithubApi {
-    agent: Arc<reqwest::Client>,
+    agent: reqwest::Client,
 }
 
 impl GithubApi {
     pub fn new() -> Self {
         Self {
-            agent: Arc::new(
-                Client::builder()
+            agent: Client::builder()
                 .timeout(Duration::from_secs(20))
                 .user_agent(RUSTIQUE_USER_AGENT)
                 .build().expect("Failed to build Github API client")
-            )
         }
     }
 
