@@ -138,6 +138,8 @@ pub async fn self_update_binary(force_update: bool) -> Result<(), RustiqueError>
     } else {
         "rustique".into()
     };
+
+    info!("new_binary_name: {new_binary_name}");
     
        
     #[cfg(windows)]
