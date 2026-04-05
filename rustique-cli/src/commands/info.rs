@@ -138,7 +138,7 @@ pub async fn info(args: &ModInfoArgs) -> Result<(), RustiqueError> {
         };
        
         for (index, mv) in rels.iter().enumerate() {
-            let version = &mv.mod_version.clone().unwrap().to_string();
+            let version = &mv.mod_version.clone().unwrap_or_default().clone();
             let game_versions = &mv.tags.join(", ");
             let changelog = html2text::from_read(&mut mv.changelog.clone().unwrap_or(String::new()).as_bytes(), 100)
                 .map_err(|_| RustiqueError::SimpleError("html2txt failed".to_string()))?;

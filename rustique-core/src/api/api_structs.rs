@@ -62,7 +62,8 @@ where
 {
     Deserialize::deserialize(d).map(|x: Vec<Option<String>>| {
         x.iter()
-            .filter_map(|y: &Option<String>| y.is_some().then(|| y.clone().unwrap_or_default()))
+            .filter(|&y: &&Option<String>| y.is_some())
+            .map(|y: &Option<String>| y.clone().unwrap_or_default())
             .collect()
     })
 }
@@ -240,6 +241,7 @@ pub struct ModApi {
     #[serde(default, rename = "type")]
     pub mod_type: Option<String>,
     pub logo: Option<String>,
+    #[serde(default, deserialize_with="some_array_items")]
     pub tags: Vec<String>,
     #[serde(default, rename = "lastreleased")]
     pub last_released: Option<String>
@@ -345,7 +347,7 @@ pub struct Release {
 
     #[serde(default)]
     pub downloads: i64,
-    #[serde(default)]
+    #[serde(default, deserialize_with="some_array_items")]
     pub tags: Vec<String>,
     #[serde(default, rename = "modidstr")]
     pub modid_str: Option<String>,
