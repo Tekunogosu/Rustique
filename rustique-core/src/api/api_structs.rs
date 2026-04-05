@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::path::PathBuf;
@@ -54,6 +54,17 @@ impl Display for StringOrBool {
         };
         write!(f, "{str}")
     }
+}
+
+fn some_array_items<'de, D>(d: D) -> Result<Vec<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Deserialize::deserialize(d).map(|x: Vec<Option<String>>| {
+        x.iter()
+            .filter_map(|y: &Option<String>| y.is_some().then(|| y.clone().unwrap_or_default()))
+            .collect()
+    })
 }
 
 // Due to mod authors not following the modinfo.json spec for mods, we have to
@@ -310,7 +321,7 @@ pub struct ApiModJson {
     pub last_released: Option<String>,
     #[serde(default, rename = "lastmodified",skip_serializing_if = "Option::is_none")]
     pub last_modified: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with="some_array_items")]
     pub tags: Vec<String>,
     #[serde(default)]
     pub releases: Vec<Release>,
