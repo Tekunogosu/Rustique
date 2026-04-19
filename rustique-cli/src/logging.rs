@@ -12,13 +12,13 @@ pub enum VerboseLevel {
 pub fn init_logging(verbose: &VerboseLevel) {
     let filter = match verbose {
         VerboseLevel::Verbose => {
-            EnvFilter::new("info,Rustique=info,ureq=info,tokio=info,tokio_runtime=info")
+            EnvFilter::new("info,rustique=info,ureq=info,tokio=info,tokio_runtime=info")
         }
         VerboseLevel::Debug => {
-            EnvFilter::new("info,Rustique=debug,ureq=info,tokio=info,tokio_runtime=info")
+            EnvFilter::new("info,rustique=debug,ureq=info,tokio=info,tokio_runtime=info")
         }
         VerboseLevel::Default => {
-            EnvFilter::new("warn,Rustique=warn,ureq=warn,tokio=warn,tokio_runtime=warn")
+            EnvFilter::new("warn,rustique=warn,ureq=warn,tokio=warn,tokio_runtime=warn")
         }
     };
 
