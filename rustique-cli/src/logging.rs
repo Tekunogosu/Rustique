@@ -26,7 +26,9 @@ pub fn init_logging(verbose: &VerboseLevel) {
         .with(fmt::layer()
             .with_thread_ids(true)
             .with_thread_names(true)
-            .with_target(false))
+            .with_target(false)
+            .with_ansi_sanitization(false)
+            )
         .with(filter)
         .init();
 }
