@@ -127,15 +127,17 @@ async fn async_main() {
         }
     }
 
-    let config = get_config().read().await;
+    // Don't use a global here, The RwLock needs to be as local as possible or rustique hangs when its called
+    // let config = get_config().read().await;
 
     // don't display the update message we are calling anything with self as it already dealt with updates
     if !matches!(&cli.command, Commands::RustiqueSelf(_)) {
-        // let config = get_config().read().await;
+        let config = get_config().read().await;
         let _ = check_for_update(config.check_for_updates, true).await;
     }
 
     if cli.with_mpk.is_some() {
+        let config = get_config().read().await;
         mod_dir = Path::new(&config.modpacks.modpack_dir)
             .join("installed")
             .join(cli.with_mpk.clone().unwrap_or(String::new()));
@@ -225,6 +227,7 @@ async fn async_main() {
         }
         Commands::Install(args) => {
             let start_time = Instant::now();
+            let config = get_config().read().await;
 
             if !args.mod_ids.is_empty() {
                 match install_cmd(&mod_dir, args.mod_ids.clone(), args.missing_dependencies).await {

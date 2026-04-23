@@ -1,6 +1,6 @@
 [package]
 name = "rustique-cli"
-version = "0.5.13"
+version = "0.5.14"
 edition = "2024"
 authors = ["tekunogosu", "Violet4"]
 
