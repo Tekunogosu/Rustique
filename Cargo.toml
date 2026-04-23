@@ -17,15 +17,15 @@ comfy-table = "7.2.1"
 url = "2.5.7"
 lenient_semver = "0.4.2"
 semver = "1.0.27"
-toml = "0.9.7"
+toml = { version = "1.1.2+spec-1.1.0", features = ["preserve_order"] }
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
-reqwest = { version = "0.12.23", features = ["json", "rustls-tls"], default-features = false }
+reqwest = { version = "0.13.2", features = ["json"], default-features = false }
 tokio = { version = "1.47.1", features = ["fs","rt-multi-thread", "macros", "io-util"] }
 clap_complete = "4.5.58"
 owo-colors = { version = "4.2.2", features = ["supports-colors"] }
 indexmap = { version = "2.11.4", features = ["serde"] }
-html2text = "0.15.5"
+html2text = "0.17.1"
 indicatif = { version = "0.18.0", features = ["tokio"] }
 async_zip = { version = "0.0.18", features = ["tokio", "tokio-fs", "deflate"] }
 futures = "0.3.31"

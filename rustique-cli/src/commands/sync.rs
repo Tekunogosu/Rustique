@@ -149,6 +149,7 @@ pub async fn sync<V: AsRef<[Package]>>(mod_dir: impl PathRef, quiet: bool, pin_v
                 installed_version: version.clone(),
                 file_name: mod_filename.clone(),
                 mod_name: mod_info.name.clone(),
+                asset_id: 0, // will be updated when we make our api call
                 latest_download_url: String::new(),
                 latest_known_version: String::new(),
                 game_versions: Vec::new(),
@@ -174,6 +175,7 @@ pub async fn sync<V: AsRef<[Package]>>(mod_dir: impl PathRef, quiet: bool, pin_v
         // let (mod_id_parsed, _) = &split_modid_version(mod_id);
         // force to lowercase because some authors put uppercase chars in the modid
         let mod_id = mod_id.to_lowercase();
+        let mod_asset_id = res_mod.mod_json.asset_id;
         
         let pkg = if pin_versions.as_ref().is_empty() {
             config.pkg.iter().find(|p| p.mod_id.eq(&mod_id)).cloned().unwrap_or_default()
@@ -197,11 +199,13 @@ pub async fn sync<V: AsRef<[Package]>>(mod_dir: impl PathRef, quiet: bool, pin_v
                 sync_info.latest_download_url.clone_from(&download_url);
                 sync_info.game_versions.clone_from(&game_versions);
                 sync_info.latest_changelog.clone_from(&changelog);
+                (sync_info.asset_id).clone_from(&mod_asset_id);
             })
             .or_insert_with(|| ModSyncInfo {
                 latest_known_version: mod_version,
                 latest_download_url: download_url,
                 mod_name: res_mod.mod_json.name.clone().unwrap_or_default(),
+                asset_id: mod_asset_id,
                 game_versions,
                 latest_changelog: changelog,
                 .. Default::default()

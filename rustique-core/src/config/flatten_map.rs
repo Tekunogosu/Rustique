@@ -9,8 +9,8 @@ use serde::ser::SerializeMap;
 use crate::config::config_structs::{CellAttr, CellColor, ColumnProperties};
 
 
-#[derive(Debug)]
-#[derive(Clone)]
+#[derive(Debug, Clone)]
+
 pub struct FlattenMap(IndexMap<String, ColumnProperties>);
 
 impl Serialize for FlattenMap {

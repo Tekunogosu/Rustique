@@ -16,14 +16,12 @@ use std::time::Instant;
 use csv::Writer;
 use tracing::{debug, info};
 use crate::commands::arg_structs::list_args::ListExport;
-use crate::commands::search::parse_search_file;
 use rustique_core::config::config_manager::get_config;
 use rustique_core::config::config_structs::{CellAttr, CellColor, ListColumn, TableSection};
 use rustique_core::information_utils::prep_cell;
 use rustique_core::install_manager::Install;
 use rustique_core::sync_structs::ModSyncInfo;
 use rustique_core::traits::ref_ext::PathRef;
-use rustique_core::traits::string_ext::StrLowerExt;
 use crate::commands::sync::{get_sync_data, sync};
 
 fn grab_this_mod_deps(mod_info: &ModInfo, dep_list: &[Install]) -> String {
@@ -148,8 +146,7 @@ pub async fn cmd_list(
 
     let mut enabled_modpacks: HashMap<ModID, Vec<ModID>> = config.modpacks.enabled.iter().map(|m| (m.clone(), Vec::new())).collect();
 
-    let search_db = parse_search_file().await?;
-    
+
     for (pack_id, v) in &mut enabled_modpacks {
         let (pack_id, _) = split_modid_version(pack_id);
         let mpath = Path::new(&config.modpacks.modpack_dir).join("installed").join(pack_id);
@@ -212,17 +209,6 @@ pub async fn cmd_list(
                         None
                     }
                 }).next().unwrap_or_default();
-
-
-                let mod_api_search = search_db.mods.iter().find(|m| {
-                    if let Some(name) = &m.name {
-                        name.contains_str_only(&mod_sync_data.mod_name) || name.contains_str_only(mod_sync_id.as_str())
-                    } else {
-                        false
-                    }
-                });
-                
-                
 
                 match <ListColumn as FromStr>::from_str(column) {
                     Ok(ListColumn::Name) => {
@@ -372,11 +358,7 @@ pub async fn cmd_list(
                         Some(prep_cell(mod_info.website.clone().unwrap_or_default().as_str(), color, attr, None, None))
                     },
                     Ok(ListColumn::ModURL) => {
-                        let url = if let Some(api) = mod_api_search {
-                            format!("https://mods.vintagestory.at/show/mod/{}", api.asset_id)
-                        } else {
-                            "Can't determine".into()
-                        };
+                        let url = format!("https://mods.vintagestory.at/show/mod/{}", mod_sync_data.asset_id);
 
                         Some(prep_cell(url, color, attr, None, None))
                     }
@@ -384,8 +366,11 @@ pub async fn cmd_list(
                 } 
             }).collect();
 
+
+
             Option::from(Row::from(cells))
     }).collect();
+
 
     table.add_rows(rows);
     

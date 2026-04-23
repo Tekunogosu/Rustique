@@ -65,6 +65,7 @@ pub struct ModIDSyncData {
 pub struct ModSyncInfo {
     pub file_name: ModFileName,
     pub mod_name: String,
+    pub asset_id: i64,
     pub installed_version: ModVersion,
     pub latest_known_version: ModVersion,
     pub latest_download_url: String,
