@@ -79,8 +79,7 @@ pub struct ModInfo {
     // instead of string for the type
     #[serde(default, rename = "type", alias = "Type")]
     pub mod_type: StringOrInt,
-
-    #[serde(default, rename = "modid", alias = "modId", alias = "ModId", alias = "ModID", alias = "modID", alias = "mod_id", alias = "Mod_id", alias = "Mod_ID", alias = "Mod_Id", alias = "MOD_ID")]
+    #[serde(default, rename = "modid", alias = "modId", alias = "Modid", alias = "ModId", alias = "ModID", alias = "modID", alias = "mod_id", alias = "Mod_id", alias = "Mod_ID", alias = "Mod_Id", alias = "MOD_ID")]
     pub mod_id: ModID,
     #[serde(default, alias = "Version")]
     pub version: Option<ModVersion>,
@@ -204,7 +203,7 @@ pub struct Mods {
     pub status_code: String
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct ModsSearchFile {
     pub mods: Vec<ModApi>,
     pub last_sync: String
@@ -212,10 +211,7 @@ pub struct ModsSearchFile {
 
 impl ModsSearchFile {
     pub fn new() -> Self {
-        Self {
-            mods: Vec::new(),
-            last_sync: String::new()
-        }
+        Self::default()
     }
 }
 

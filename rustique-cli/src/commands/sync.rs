@@ -112,14 +112,16 @@ pub async fn sync<V: AsRef<[Package]>>(mod_dir: impl PathRef, quiet: bool, pin_v
 
     let installed_mods = extract_all_mods_metadata(mod_dir, false).await?;
 
+    debug!("INSTALLED_MODS in sync: {:?}", installed_mods);
+
     // clean sync data first so latest info takes priority
     sync_data.rustique_sync.clear();
 
     for (mod_filename, mod_info) in &installed_mods {
         
+        debug!("MOD_INFO in sync: {:?}", mod_info);
+
         // check if the file is a symlink
-        
-        
         let version = if let Ok(parsed_version) = parse_version(&mod_info.version.clone().unwrap_or_default()) {
             parsed_version.to_string()
         } else {
