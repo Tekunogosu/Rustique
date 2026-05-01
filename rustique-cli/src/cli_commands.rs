@@ -72,6 +72,11 @@ pub enum Commands {
         /// Set up the 1-click mod installation. Installs to ~/.local/share/applications/rustique.desktop
         #[arg(short, long)]
         one_click_setup: bool,
+
+        #[cfg(unix)]
+        /// Used with one_click_setup, this makes it so no terminal pops up when using 1-click-install
+        #[arg(short, long, requires = "one_click_setup")]
+        silent: bool,
     },
 
     #[command(about = "Download a Vintage Story executable")]

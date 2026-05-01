@@ -134,15 +134,19 @@ impl ApiClient {
         let text = response.text().await
         .map_err(|e| RustiqueError::SimpleError(e.to_string()))?;
         
+
+        debug!("Mods return text:  {:?}", text);
         
-        
-        let parsed: Mod = serde_json::from_str(&text).map_err(|e| RustiqueError::SimpleError(e.to_string()))?;
+        let parsed: Mod = serde_json::from_str(&text).map_err(|e| RustiqueError::SimpleError(e.to_string()))
+            .map_err(|e| RustiqueError::SimpleError(format!("API return 404 for {}, its likely the api does not recognize the string form of the id (assuming this was the string form): {}", mod_id, e)))?;
         debug!("Parsed {:?}", parsed);
 
         Ok(parsed)
     }
 
     pub async fn fetch_mods_parallel(&self, mod_list: Vec<ModID>) -> Result<HashMap<ModID, Mod>, RustiqueError> {
+
+        debug!("fetch_mods_parallel checking : {:?}", mod_list);
 
         let valid_ids: Vec<ModID> = mod_list.into_iter().filter(|m| {
             if m.is_empty() {

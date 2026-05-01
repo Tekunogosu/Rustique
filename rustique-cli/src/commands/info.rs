@@ -1,6 +1,7 @@
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
 use comfy_table::presets::UTF8_FULL_CONDENSED;
 use comfy_table::{CellAlignment, Color, ContentArrangement, Row, Table};
+use tracing::debug;
 use rustique_core::api::api_structs::Release;
 use rustique_core::api::client::ApiClient;
 use crate::commands::arg_structs::info_args::ModInfoArgs;
@@ -16,6 +17,7 @@ pub async fn info(args: &ModInfoArgs) -> Result<(), RustiqueError> {
     let client = ApiClient::new();
     let mod_info = client.fetch_mods_parallel(mods_vec).await?;
 
+    debug!("{:?}", mod_info);
     
     for (_, mod_info) in mod_info {
        

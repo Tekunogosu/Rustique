@@ -81,7 +81,10 @@ pub fn parse_download_url_from_version<V: AsRef<[Release]>>(releases: V, version
 
 
 pub fn parse_version(mod_version: &str) -> Result<Version, RustiqueError> {
+    // let x = lenient_semver::parse_into::<Version>(mod_version).unwrap();
+
     lenient_semver::parse(mod_version).map_err(|e| RustiqueError::SimpleError(e.to_string()))
+
 }
 
 
@@ -187,7 +190,22 @@ fn return_version_results(result: Option<LatestVersionFound>) -> (ModVersion, Do
 }
 
 pub fn compare_versions(mod_version: &str, other_version: &str) -> Result<std::cmp::Ordering, RustiqueError> {
+    // This function needs to be updated to parse rustiques version convention
+    // valid symbols: [>, >=, <, <=, =] -- These will always be at the start of the version being pinned
+    // Example: >=0.1.8
+    //
+    // A wildcard is also valid in any position of the version number string using *
+    // Example: 0.1.*  is the same as >=0.1.0
+
     let mv = parse_version(mod_version)?;
     let ov = parse_version(other_version)?;
     Ok(mv.cmp(&ov))
 }
+
+
+// create function that compares major version:
+// if less/greater, fail, if equal continue
+// compare minor
+// if less/greater, fail, if equal continue
+// compare patch
+// if less, fail, if equal/greater continue

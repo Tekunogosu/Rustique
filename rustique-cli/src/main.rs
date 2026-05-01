@@ -268,8 +268,8 @@ async fn async_main() {
             generate_completion(shell.clone());
         }
         #[cfg(unix)]
-        Commands::Misc { one_click_setup: true, .. } => {
-            one_click_setup();
+        Commands::Misc { one_click_setup: true, silent, .. } => {
+            one_click_setup(*silent);
         }
         // This section is needed for windows to compile because one_click_setup is not available on windows
         Commands::Misc { .. } => {}
@@ -379,7 +379,7 @@ fn generate_completion(shell: ShellType) {
 // Thanks coolcoder613 for the 1-click install setup!
 //
 #[cfg(unix)]
-fn one_click_setup() {
+fn one_click_setup(silent_install: bool) {
 
     let exe_path = match std::env::current_exe() {
         Ok(exe_path) => exe_path,
@@ -388,9 +388,12 @@ fn one_click_setup() {
             exit(1);
         }
     };
+    
 
-    let text = include_str!("rustique.desktop")
-        .replace("{RUSTIQUE_PATH}", &exe_path.to_string_lossy());
+    let file_txt = if silent_install { include_str!("rustique-silent.desktop")}
+    else { include_str!("rustique.desktop") };
+
+    let text = file_txt.replace("{RUSTIQUE_PATH}", &exe_path.to_string_lossy());
     
     let rustique_desktop_path = if let Some(home) = home_dir() {
         home.join(".local/share/applications/rustique.desktop")
