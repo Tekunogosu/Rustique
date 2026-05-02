@@ -169,8 +169,7 @@ impl ApiClient {
         pb.set_message("Fetching mods...");
 
         // Create a vector to hold all our task handles
-        let mut tasks: Vec<JoinHandle<Option<(ModID, Mod)>>> = Vec::with_capacity(valid_ids.len());
-
+        let mut tasks: Vec<JoinHandle<Result<(ModID, Mod), String>>> = Vec::with_capacity(valid_ids.len());
         // Spawn a task for each mod
         for (i, mod_id) in valid_ids.into_iter().enumerate() {
             info!("ModID: {}", mod_id);
@@ -183,13 +182,15 @@ impl ApiClient {
                     Ok(the_mod) => {
                         pb_clone.set_message(mod_id.to_string());
                         pb_clone.inc(1);
-                        Some((mod_id, the_mod))
+                        Ok((mod_id, the_mod))
                     },
                     Err(e) => {
-                        error!("{mod_id} {e}");
-                        pb_clone.set_message(format!("Failed: {}", mod_id.red()));
                         pb_clone.inc(1);
-                        None
+                        Err(format!(
+                            "Failed: {0}\nError:\n{1}\n",
+                            &mod_id.red(),
+                            &e.to_string().red()
+                        ))
                     }
                 }
             });
@@ -205,12 +206,23 @@ impl ApiClient {
         let results_vec = join_all(tasks).await;
         // Wait for all tasks to complete and collect results
         let mut results = HashMap::new();
-        for (mod_id, mod_info) in results_vec.into_iter().flatten().flatten() {
-            // Handle any JoinError from the task itself
-            results.insert(mod_id, mod_info);
+        let mut error_messages: Vec<String> = Vec::with_capacity(results_vec.len());
+        for result in results_vec.into_iter().flatten() {
+            match result {
+                Ok((mod_id, mod_info)) => {
+                    // Handle any JoinError from the task itself
+                    results.insert(mod_id, mod_info);
+                }
+                Err(error_message) => {
+                    error_messages.push(error_message);
+                }
+            }
         }
 
         pb.finish_with_message("Fetch Complete");
+        for err in error_messages.iter() {
+            error!("{}", err);
+        }
         Ok(results)
     }
 
