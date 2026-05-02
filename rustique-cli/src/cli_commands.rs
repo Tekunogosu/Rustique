@@ -12,7 +12,6 @@ use crate::commands::arg_structs::updater_args::UpdaterArgs;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use clap_complete::Shell;
 
-
 #[derive(Parser)]
 #[command(name = "Rustique")]
 #[command(author = "Theysa")]
@@ -44,16 +43,22 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
-    #[command(about = "Checks with the VintageStory mods website for any updates to mods you have installed. Run update after this command to update your mods" )]
+    #[command(
+        about = "Checks with the VintageStory mods website for any updates to mods you have installed. Run update after this command to update your mods"
+    )]
     Sync(SyncArgs),
 
-    #[command(about = "List installed mods and their versions and any missing dependencies. Running sync first will show any available updates to your mods")]
+    #[command(
+        about = "List installed mods and their versions and any missing dependencies. Running sync first will show any available updates to your mods"
+    )]
     List(ListArgs),
 
     #[command(about = "Updates a specific mod OR all mods installed. Runs sync after completion")]
     Update(UpdateArgs),
 
-    #[command(about = "Install a specific mod. Must use the mod_id, Example: ./Rustique install alchemy")]
+    #[command(
+        about = "Install a specific mod. Must use the mod_id, Example: ./Rustique install alchemy"
+    )]
     Install(InstallArgs),
 
     #[command(about = "Search the mod website for new mods, Example: ./Rustique search -q magic")]
@@ -62,12 +67,14 @@ pub enum Commands {
     #[command(about = "Manage config options for Rustique")]
     Config(ConfigCommand),
 
-    #[command(about = "Miscellaneous items for Rustique, like shell auto-completion and 1-click mod installation")]
+    #[command(
+        about = "Miscellaneous items for Rustique, like shell auto-completion and 1-click mod installation"
+    )]
     Misc {
-        /// Prints a auto-complete file based on your SHELL to stdout. 
+        /// Prints a auto-complete file based on your SHELL to stdout.
         #[arg(short, long = "gen-auto-complete", value_name = "SHELL")]
         gen_auto_complete: Option<ShellType>,
-       
+
         #[cfg(unix)]
         /// Set up the 1-click mod installation. Installs to ~/.local/share/applications/rustique.desktop
         #[arg(short, long)]
@@ -77,6 +84,11 @@ pub enum Commands {
         /// Used with one_click_setup, this makes it so no terminal pops up when using 1-click-install
         #[arg(short, long, requires = "one_click_setup")]
         silent: bool,
+
+        #[cfg(unix)]
+        /// Used with one_click_setup, this makes it so the terminal auto-closes after 1-click-install
+        #[arg(short, long, requires = "one_click_setup")]
+        autoclose: bool,
     },
 
     #[command(about = "Download a Vintage Story executable")]
@@ -88,7 +100,10 @@ pub enum Commands {
     #[command(about = "Create, download, update modpacks for VintageStory")]
     Modpack(ModpackCommands),
 
-    #[command(name = "self", about = "Manage the Rustique binary; Check for updates, perform updates.")]
+    #[command(
+        name = "self",
+        about = "Manage the Rustique binary; Check for updates, perform updates."
+    )]
     RustiqueSelf(UpdaterArgs),
 
     #[command(about = "Remove mods and backups")]
