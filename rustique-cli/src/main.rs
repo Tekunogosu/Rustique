@@ -1,3 +1,4 @@
+
 #![warn(clippy::perf, clippy::pedantic)]
 #![warn(clippy::manual_string_new)]
 #![allow(
@@ -17,7 +18,6 @@ mod updater;
 mod windows_funcs;
 
 use crate::cli_commands::{Cli, Commands, ShellType};
-use crate::commands::config::parse_config_args;
 use crate::commands::delete::{delete_all, delete_cmd};
 use crate::commands::download::download;
 use crate::commands::info::info;
@@ -29,26 +29,27 @@ use crate::logging::{VerboseLevel, init_logging};
 use crate::modpack::modpack_commands::parse_modpack_commands;
 use crate::updater::update_manager;
 use crate::updater::update_manager::check_for_update;
+use crate::commands::config::parse_config_args;
 use clap::{CommandFactory, FromArgMatches};
 use clap_complete::{Shell, generate};
 use comfy_table::{Attribute, Color};
 use commands::sync::sync;
 use commands::update::update_mods;
-use dirs::home_dir;
 use owo_colors::OwoColorize;
+use std::fs::File;
+use std::io::{self, stdin, Write};
+use std::path::{Path, PathBuf};
+use std::process::{Command, exit};
+use std::time::Instant;
+use dirs::home_dir;
+use tracing::{debug, error, info, warn};
 use rustique_core::config::config_manager::{get_config, init_config};
 use rustique_core::information_utils::{elapsed_footer, notice};
-use rustique_core::rustique_errors::{ErrorMsgFn, handle_err_result};
+use rustique_core::rustique_errors::{handle_err_result, ErrorMsgFn};
 use rustique_core::rustique_options::RustiqueOptions;
 use rustique_core::traits::ref_ext::PathRef;
 use rustique_core::traits::string_ext::StrLowerExt;
 use rustique_core::utils::{get_expanded_path, sorted_game_versions};
-use std::fs::File;
-use std::io::{self, Write, stdin};
-use std::path::{Path, PathBuf};
-use std::process::{Command, exit};
-use std::time::Instant;
-use tracing::{debug, error, info, warn};
 
 fn main() {
     // Initialize the Tokio runtime
@@ -68,6 +69,7 @@ async fn async_main() {
         exit(1)
     });
 
+
     let verbosity = if cli.debug {
         VerboseLevel::Debug
     } else if cli.verbose {
@@ -76,7 +78,7 @@ async fn async_main() {
         VerboseLevel::Default
     };
     init_logging(&verbosity);
-
+    
     // setup the config global
     handle_err_result(init_config(), "init_config: ", false, ErrorMsgFn::Debug);
 
@@ -252,7 +254,7 @@ async fn async_main() {
             if config.show_execution_time {
                 elapsed_footer(start_time, "Install");
             }
-
+           
             #[cfg(unix)]
             if args.wait {
                 println!("Press enter to exit...");
@@ -262,19 +264,11 @@ async fn async_main() {
         Commands::Config(config_cmd) => {
             parse_config_args(config_cmd).await;
         }
-        Commands::Misc {
-            gen_auto_complete: Some(shell),
-            ..
-        } => {
+        Commands::Misc { gen_auto_complete: Some(shell), .. } => {
             generate_completion(shell.clone());
         }
         #[cfg(unix)]
-        Commands::Misc {
-            one_click_setup: true,
-            silent,
-            autoclose,
-            ..
-        } => {
+        Commands::Misc { one_click_setup: true, silent, autoclose, .. } => {
             one_click_setup(*silent, *autoclose);
         }
         // This section is needed for windows to compile because one_click_setup is not available on windows
@@ -283,8 +277,7 @@ async fn async_main() {
             handle_err_result(
                 info(args).await,
                 "Failed to call Info:",
-                true,
-                ErrorMsgFn::Info,
+                true, ErrorMsgFn::Info,
             );
         }
         Commands::Search(args) => {
@@ -362,25 +355,17 @@ fn generate_completion(shell: ShellType) {
     println!("\n# Completion script generated. To use it:");
     match shell {
         Shell::Bash => {
-            println!(
-                "# Save the above output to ~/.local/share/bash-completion/completions/rustique"
-            );
-            println!(
-                "# Or run: rustique misc --gen-auto-complete bash > ~/.local/share/bash-completion/completions/rustique"
-            );
+            println!("# Save the above output to ~/.local/share/bash-completion/completions/rustique");
+            println!("# Or run: rustique misc --gen-auto-complete bash > ~/.local/share/bash-completion/completions/rustique");
         }
         Shell::Zsh => {
             println!("# Save the above output to ~/.zsh/completion/_rustique");
-            println!(
-                "# Or run: rustique misc --gen-auto-complete zsh > ~/.zsh/completion/_rustique"
-            );
+            println!("# Or run: rustique misc --gen-auto-complete zsh > ~/.zsh/completion/_rustique");
             println!("# Then add to your .zshrc: fpath=(~/.zsh/completion $fpath)");
         }
         Shell::Fish => {
             println!("# Save the above output to ~/.config/fish/completions/rustique.fish");
-            println!(
-                "# Or run: rustique misc --gen-auto-complete fish > ~/.config/fish/completions/rustique.fish"
-            );
+            println!("# Or run: rustique misc --gen-auto-complete fish > ~/.config/fish/completions/rustique.fish");
         }
         Shell::PowerShell => {
             println!("# Save the above output to a file and source it in your PowerShell profile");
@@ -394,6 +379,7 @@ fn generate_completion(shell: ShellType) {
 //
 #[cfg(unix)]
 fn one_click_setup(silent_install: bool, autoclose: bool) {
+
     let exe_path = match std::env::current_exe() {
         Ok(exe_path) => exe_path,
         Err(e) => {
