@@ -1,4 +1,3 @@
-
 #![warn(clippy::perf, clippy::pedantic)]
 #![warn(clippy::manual_string_new)]
 #![allow(
@@ -268,8 +267,8 @@ async fn async_main() {
             generate_completion(shell.clone());
         }
         #[cfg(unix)]
-        Commands::Misc { one_click_setup: true, silent, autoclose, .. } => {
-            one_click_setup(*silent, *autoclose);
+        Commands::Misc { one_click_setup: true, silent, autoclose, log_output, file_path, .. } => {
+            one_click_setup(*silent, *autoclose, *log_output, file_path);
         }
         // This section is needed for windows to compile because one_click_setup is not available on windows
         Commands::Misc { .. } => {}
@@ -321,15 +320,13 @@ async fn async_main() {
                 );
             }
 
-            if args.all.is_some() {
-                if let Some(which) = &args.all {
-                    handle_err_result(
-                        delete_all(&mod_dir, which).await,
-                        &format!("Unable to delete all mod(s) in {}", mod_dir.display()),
-                        true,
-                        ErrorMsgFn::Error,
-                    );
-                }
+            if let Some(which) = &args.all {
+                handle_err_result(
+                    delete_all(&mod_dir, which).await,
+                    &format!("Unable to delete all mod(s) in {}", mod_dir.display()),
+                    true,
+                    ErrorMsgFn::Error,
+                );
             }
         }
     }
@@ -378,7 +375,7 @@ fn generate_completion(shell: ShellType) {
 // Thanks coolcoder613 for the 1-click install setup!
 //
 #[cfg(unix)]
-fn one_click_setup(silent_install: bool, autoclose: bool) {
+fn one_click_setup(silent_install: bool, autoclose: bool, log_output: bool, file_path: &str) {
 
     let exe_path = match std::env::current_exe() {
         Ok(exe_path) => exe_path,
@@ -388,17 +385,40 @@ fn one_click_setup(silent_install: bool, autoclose: bool) {
         }
     };
 
+    let set_log_path = if log_output {
+        // We use tee here so that the user still see's output and "Press any key to close" if they've not enabled silent
+        let build_redirect = |s: &str| {
+            if silent_install {
+                format!(">> {s}")
+            } else {
+                format!("| tee {s}")
+            }
+        };
+
+        let default_log_path = "/tmp/rustique.log";
+        let lp = Path::new(file_path); // file_path is always set from at least the default value set in clap
+        let chosen_log_path = if lp.parent().is_some_and(|p| p.exists() && p.is_dir()) {
+            &lp.to_string_lossy()
+        } else {
+            notice(
+                "Could not find valid directory for provided log file path. Setting path to default /tmp/rustique.log",
+                   Some(Color::Yellow), vec![]
+            );
+            default_log_path
+        };
+
+        build_redirect(chosen_log_path)
+    } else { String::new() } ;
 
     let set_silent = if silent_install { "false" } else { "true" };
     let set_autoclose = if autoclose || silent_install { "" } else { "-w " };
-
     let file_txt = include_str!("rustique.desktop");
     
     let text = file_txt
         .replace("{RUSTIQUE_PATH}", &exe_path.to_string_lossy())
         .replace("{SILENT}", set_silent)
+        .replace("{LOG_PATH}", &set_log_path)
         .replace("{AUTOCLOSE}", set_autoclose);
-    
     
     let rustique_desktop_path = if let Some(home) = home_dir() {
         home.join(".local/share/applications/rustique.desktop")

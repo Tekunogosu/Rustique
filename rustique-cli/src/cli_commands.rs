@@ -74,13 +74,23 @@ pub enum Commands {
 
         #[cfg(unix)]
         /// Used with one_click_setup, this makes it so no terminal pops up when using 1-click-install
-        #[arg(short, long, requires = "one_click_setup")]
+        #[arg(short, long, requires = "one_click_setup", default_value = "false")]
         silent: bool,
 
         #[cfg(unix)]
         /// Used with one_click_setup, this makes it so the terminal auto-closes after 1-click-install
-        #[arg(short, long, requires = "one_click_setup")]
+        #[arg(short, long, requires = "one_click_setup", default_value = "false")]
         autoclose: bool,
+
+        #[cfg(unix)]
+        /// Logs the output of one_click_setup, set to /tmp/rustique.log by default
+        #[arg(short, long, requires = "one_click_setup", default_value = "false")]
+        log_output: bool,
+
+        #[cfg(unix)]
+        /// Set the log path for log_output to custom location
+        #[arg(short, long, requires = "log_output", default_value = "/tmp/rustique.log")]
+        file_path: String
     },
 
     #[command(about = "Download a Vintage Story executable")]
