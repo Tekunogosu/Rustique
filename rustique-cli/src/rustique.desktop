@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=Rustique Mod Manager
-Exec={RUSTIQUE_PATH} install %u -w
-Terminal=true
+Exec=bash -c '{RUSTIQUE_PATH} install %u {AUTOCLOSE}>> /tmp/rustique.log'
+Terminal={SILENT}
 StartupNotify=False
 MimeType=x-scheme-handler/vintagestorymodinstall;

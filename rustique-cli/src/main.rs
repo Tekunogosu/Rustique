@@ -388,16 +388,18 @@ fn one_click_setup(silent_install: bool, autoclose: bool) {
         }
     };
 
-    let file_txt = if silent_install {
-        include_str!("rustique-silent.desktop")
-    } else if autoclose {
-        include_str!("rustique-autoclose.desktop")
-    } else {
-        include_str!("rustique.desktop")
-    };
 
-    let text = file_txt.replace("{RUSTIQUE_PATH}", &exe_path.to_string_lossy());
+    let set_silent = if silent_install { "false" } else { "true" };
+    let set_autoclose = if autoclose || silent_install { "" } else { "-w " };
 
+    let file_txt = include_str!("rustique.desktop");
+    
+    let text = file_txt
+        .replace("{RUSTIQUE_PATH}", &exe_path.to_string_lossy())
+        .replace("{SILENT}", set_silent)
+        .replace("{AUTOCLOSE}", set_autoclose);
+    
+    
     let rustique_desktop_path = if let Some(home) = home_dir() {
         home.join(".local/share/applications/rustique.desktop")
     } else {
