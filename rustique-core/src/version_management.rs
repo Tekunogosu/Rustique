@@ -1,11 +1,11 @@
 use crate::aliases::{DownloadURL, ModID, ModVersion, PinnedVersionInfo};
 use crate::api::api_structs::{Release};
 use crate::rustique_errors::RustiqueError;
-use semver::{Version};
+use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use owo_colors::OwoColorize;
-use tracing::{debug, error, info};
+use tracing::info;
 use crate::config::config_manager::Package;
 use crate::traits::ref_ext::StrRef;
 
@@ -81,10 +81,7 @@ pub fn parse_download_url_from_version<V: AsRef<[Release]>>(releases: V, version
 
 
 pub fn parse_version(mod_version: &str) -> Result<Version, RustiqueError> {
-    // let x = lenient_semver::parse_into::<Version>(mod_version).unwrap();
-
     lenient_semver::parse(mod_version).map_err(|e| RustiqueError::SimpleError(e.to_string()))
-
 }
 
 
@@ -95,69 +92,51 @@ pub fn parse_pinned_version(releases: &Vec<Release>, mod_pkg: &Package, pinned_g
 
     let pinned_game_version = pinned_game_version.as_ref();
 
+    info!("mod_pkg {:?}", mod_pkg);
+
     // filter out versions that are not declared as compatible with the pinned game version
-    let gres = if pinned_game_version.is_empty() {
+    let pinned_game_res = if pinned_game_version.is_empty() {
         info!("pinned_game_version was empty");
         releases.clone()
     } else {
         info!("found pinned_game_version: {pinned_game_version}");
-        releases.iter().filter(|r| {
-            let mut found = false;
+        // let parsed_game_version = parse_version(pinned_game_version)
+        //     .map_err(|e| RustiqueError::SimpleError(format!("Failed to parse game version {pinned_game_version} {e}"))).unwrap();
 
-            for tag in &r.tags {
-                match compare_versions(tag.as_str(), pinned_game_version) {
-                    Ok(c) => match c {
-                        std::cmp::Ordering::Less| std::cmp::Ordering::Equal => {
-                            debug!("Version {tag} is <= {pinned_game_version} --- returning true");
-                            found = true;
-                        },
-                        std::cmp::Ordering::Greater => {
-                            debug!("Version {tag} is > {pinned_game_version} --- returning false");
-                        },
-                    },
-                    Err(e) => {
-                        error!("{e}");
-                    },
-                }
-            }
+        // let parsed_pinned_game_version = lenient_semver::parse(pinned_game_version).unwrap();
 
-            found
+        // info!("Checking parsed pinned game version {parsed_pinned_game_version}");
 
+        releases.iter().filter(|release| {
+            info!("Parsing and validating tags {:?}", release.tags);
+
+            let result = release.tags.iter().any( |tag|
+                compare_versions(pinned_game_version, tag).unwrap()
+            );
+
+            info!("Result from pinned_game_version pares check {result}");
+            result
         }).cloned().collect()
     };
 
-    debug!("releases found for game version {:?}",gres);
+    info!("releases found for game version {:?}", pinned_game_res);
 
     // filter out any version that doesn't match the pinned mod version
-    let mres = if mod_pkg.pinned_version.is_some() {
-        gres.iter().filter(|r| {
-            // if its 0.0.0, just return true, this means the version parsed failed, prob invalid semver 
-            let ver = if let Some(v) = &mod_pkg.pinned_version {
-                if v == "0.0.0" {
-                    return true
-                }
-                
-                v.to_string()
-            } else {
-                return true
-            };
-            
-            match compare_versions(r.mod_version.clone().unwrap_or_default().as_str(), &ver) {
-                Ok(c) => match c {
-                    std::cmp::Ordering::Less | std::cmp::Ordering::Equal => true,
-                    std::cmp::Ordering::Greater => false,
-                }
-                Err(e) => {
-                    info!("{} {}", "parse_pinned_version-mres:".bright_yellow(), e.red().bold());
-                    false
-                },
-            }
+    let pinned_mod_res = if mod_pkg.pinned_version.is_some() {
+        pinned_game_res.iter().filter(|r| {
+
+            let parsed_mod_version = parse_version(&r.mod_version.clone().unwrap_or(String::from("0.0.0")))
+                .map_err(|e| RustiqueError::SimpleError(format!("Failed to parse mod version {e}"))).unwrap();
+
+            VersionReq::parse(&mod_pkg.pinned_version.clone().unwrap_or(String::from("0.0.0")))
+                .map_err(|e| RustiqueError::SimpleError(format!("Failed to parse pinned mod version {e}"))).unwrap().matches(&parsed_mod_version)
+
         }).cloned().collect()
     } else {
-        gres
+        pinned_game_res
     };
 
-    let final_res = mres.iter().filter_map(|r| {
+    let final_res = pinned_mod_res.iter().filter_map(|r| {
         match parse_version(r.mod_version.as_ref().unwrap()) {
             Ok(v) => Some((v, r.main_file.clone(), r.tags.clone(), r.changelog.clone())),
             Err(e) => {
@@ -166,7 +145,7 @@ pub fn parse_pinned_version(releases: &Vec<Release>, mod_pkg: &Package, pinned_g
             }
         }
     }).max_by(|(v1,_,_, _),(v2,_,_,_)| v1.cmp(v2))
-      .map(|(latest_version, download_url, game_versions, changelog)| LatestVersionFound { 
+                                  .map(|(latest_version, download_url, game_versions, changelog)| LatestVersionFound {
           latest_version, 
           download_url: download_url.clone(), 
           game_versions,
@@ -189,23 +168,30 @@ fn return_version_results(result: Option<LatestVersionFound>) -> (ModVersion, Do
     }
 }
 
-pub fn compare_versions(mod_version: &str, other_version: &str) -> Result<std::cmp::Ordering, RustiqueError> {
-    // This function needs to be updated to parse rustiques version convention
-    // valid symbols: [>, >=, <, <=, =] -- These will always be at the start of the version being pinned
-    // Example: >=0.1.8
-    //
-    // A wildcard is also valid in any position of the version number string using *
-    // Example: 0.1.*  is the same as >=0.1.0
+/*
+    The semver library allows for wildcards, and >=, >, <=, <, = to compare versions strings.
+    However, it does not allow wildcards IF any -rc/pre/alpha.. exists in the string.
 
-    let mv = parse_version(mod_version)?;
-    let ov = parse_version(other_version)?;
-    Ok(mv.cmp(&ov))
+    Example:
+        Pinned version 1.22.*
+
+        [Version string 1.22.0
+        result: true]
+
+        [Version string 1.22.0-pre.0
+        result: false]
+
+    The user can only compare -pre/-rc versions of the same patch level.
+
+    So, pinned >=1.22.0-rc.1  will return false even for 1.22.2-rc.0, despite that version being higher, technically.
+    This effectively means that rustique will ONLY download a mod for a stable (meaning non -pre/-rc) of the game,
+    unless they explicitly pin the unstable version.
+
+ */
+pub fn compare_versions(pinned_version: &str, other_version: &str) -> Result<bool, RustiqueError> {
+    // info!("Doing the compare_and_parse_versions");
+    let x = VersionReq::parse(pinned_version).map_err(|e| RustiqueError::SimpleError(format!("Failed parsing pinned version in compare_and_parse {e}")))?;
+    let y = Version::parse(other_version).map_err(|e| RustiqueError::SimpleError(format!("Failed parsing pinned version in compare_and_parse {e}")))?;
+
+    Ok(x.matches(&y))
 }
-
-
-// create function that compares major version:
-// if less/greater, fail, if equal continue
-// compare minor
-// if less/greater, fail, if equal continue
-// compare patch
-// if less, fail, if equal/greater continue

@@ -1,18 +1,16 @@
 use crate::commands::arg_structs::config_args::{DelArgs, CommonArgs, ConfigCommand, ConfigSubCommand};
-use rustique_core::utils::{get_expanded_path, parse_json_file};
+use rustique_core::utils::get_expanded_path;
 use std::path::PathBuf;
 use std::process::exit;
 use comfy_table::{Attribute, CellAlignment, Color, ContentArrangement, Row, Table};
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
 use comfy_table::presets::{UTF8_FULL_CONDENSED};
+use semver::VersionReq;
 use tracing::{warn};
 use crate::commands::config_table::config_table;
 use rustique_core::config::config_manager::{get_config, Config, Package};
 use rustique_core::config::config_structs::{CellAttr, CellColor};
-use rustique_core::consts::FILE_GAME_VERSION_SYNC;
 use rustique_core::information_utils::{command_output, display_table, notice, prep_cell, CellData};
-use rustique_core::sync_structs::GameVersionSync;
-use rustique_core::version_management::parse_version;
 
 pub async fn parse_config_args(config_cmd: &ConfigCommand) {
     match &config_cmd.subcommand {
@@ -71,56 +69,51 @@ async fn set(args: &CommonArgs) {
 
     if let Some(version) = &args.pin_game_version {
 
-        let gv_sync_file = Config::get_path().join(FILE_GAME_VERSION_SYNC);
-        let mut game_versions = match parse_json_file::<GameVersionSync>(&gv_sync_file).await {
-            Ok(game_versions) => game_versions,
-            Err(err) => {
-                warn!("{}", err);
-                exit(1);
-            }
-        };
-
-        game_versions.game_versions.sort_by(|v1, v2| {
-            let v1_version = parse_version(v1).unwrap();
-            let v2_version = parse_version(v2).unwrap();
-            v1_version.cmp(&v2_version)
-        });
-
-        game_versions.game_versions.reverse();
-        
-        let v = version.to_lowercase().replace('v', "");
-        
-        if game_versions.game_versions.contains(&v) {
-            config.pinned_game_version.clone_from(&v);
+        if VersionReq::parse(version).is_ok() {
+            config.pinned_game_version.clone_from(version);
             save = true;
-            display_vec.push(command_output("config.pinned_game_version", v));
+            display_vec.push(command_output("config.pinned_game_version", version));
         } else {
-            notice("Invalid game version. The version must be one of the following: ", Some(Color::Yellow), vec![Attribute::Bold]);
-            notice(format!("[{}]",game_versions.game_versions.join("], [").as_str()), Some(Color::Magenta), vec![]);
+            notice(
+        "The version string you tried to pin is invalid. \
+                 Valid operators are: <, <=, >, >=, =. \
+                 Wildcards (*) are supported for major, minor, or patch sections (e.g., '1.22.*'), \
+                 but they cannot be used if the version includes pre-release identifiers (e.g., '-rc', '-pre', '-alpha').",
+                 Some(Color::Yellow),
+                vec![Attribute::Bold]
+);
         }
     }
-    
-    if let Some(with_mod) = &args.with_mod {
-        if let Some(version) = &args.pin_version {
-            let mut found = false;
-            for package in &mut config.pkg {
-                if package.mod_id.eq_ignore_ascii_case(with_mod) {
-                    package.pinned_version = Some(version.clone());
-                    found = true;
-                    break;
-                }
-            }
-            
-            if !found {
-                config.pkg.push(Package {
-                    mod_id: with_mod.clone().to_string(),
-                    pinned_version: Some(version.clone())
-                });
-            }
+
+    if let (Some(with_mod), Some(version)) = (&args.with_mod, &args.pin_version) {
+        let mut found = false;
+
+        if let Some(pkg) = config.pkg.iter_mut().find(|p| p.mod_id.eq_ignore_ascii_case(with_mod)) {
+            pkg.pinned_version = Some(version.clone());
+            found = true;
+        }
+
+        if !found {
+            config.pkg.push(Package {
+                mod_id: with_mod.clone().clone(),
+                pinned_version: Some(version.clone()),
+            });
+        }
+
+        if VersionReq::parse(version).is_ok() {
             save = true;
             display_vec.push(command_output(format!("Pinned: {with_mod}"), version));
             notice("Be sure to run the sync command to update Rustique's sync file to use the newly set pinned mod version.", Some(Color::Green), vec![]);
+        } else {
+           notice(
+        "The version string you tried to pin is invalid. \
+                 Valid operators are: <, <=, >, >=, =. \
+                 Wildcards (*) are supported for major, minor, or patch sections (e.g., '0.1.*', '0.*.0'), \
+                 but they cannot be used if the version includes pre-release identifiers (e.g., '-rc', '-pre', '-alpha').",
+                 Some(Color::Yellow),
+                vec![Attribute::Bold]);
         }
+
     }
 
     if let Some(val) = &args.show_execution_time {
