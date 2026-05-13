@@ -4,8 +4,9 @@ use crate::rustique_errors::RustiqueError;
 use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+use comfy_table::Color;
 use owo_colors::OwoColorize;
-use tracing::info;
+use tracing::{debug, info};
 use crate::config::config_manager::Package;
 use crate::traits::ref_ext::StrRef;
 
@@ -85,58 +86,33 @@ pub fn parse_version(mod_version: &str) -> Result<Version, RustiqueError> {
 }
 
 
-/// retrieve a version based on version pinning information. 
-pub fn parse_pinned_version(releases: &Vec<Release>, mod_pkg: &Package, pinned_game_version: impl StrRef) -> PinnedVersionInfo {
-    // user should be using Rustique itself to set pinned_game_version so we trust that its valid, otherwise this function
-    // will not return the correct version
+pub fn parse_pinned_version(mod_releases: &Vec<Release>, mod_config_pkg: &Package, pinned_game_version: &str, allow_unstable: bool) -> Result<PinnedVersionInfo, RustiqueError> {
 
-    let pinned_game_version = pinned_game_version.as_ref();
+    // filter once
+    // iterate through releases
+    // check if release is valid against the pinned game version AND against the pinned mod version from the mod_config_pkg
+    let compatible_releases : Vec<Release> =  mod_releases.iter().filter(|release| {
+        // check for pinned game version compatibility
 
-    info!("mod_pkg {:?}", mod_pkg);
 
-    // filter out versions that are not declared as compatible with the pinned game version
-    let pinned_game_res = if pinned_game_version.is_empty() {
-        info!("pinned_game_version was empty");
-        releases.clone()
-    } else {
-        info!("found pinned_game_version: {pinned_game_version}");
-        // let parsed_game_version = parse_version(pinned_game_version)
-        //     .map_err(|e| RustiqueError::SimpleError(format!("Failed to parse game version {pinned_game_version} {e}"))).unwrap();
+        let compatible_with_pinned_game_version = find_compatible_versions(pinned_game_version, release.tags.clone(), allow_unstable).unwrap_or(false);
 
-        // let parsed_pinned_game_version = lenient_semver::parse(pinned_game_version).unwrap();
+        let compatible_with_pinned_mod_version = if let Some(pinned_mod_version) = &mod_config_pkg.pinned_version {
+            find_compatible_versions(pinned_mod_version, vec![release.mod_version.clone().unwrap_or("0.0.0".into())], allow_unstable).unwrap_or(false)
+        } else { true };
 
-        // info!("Checking parsed pinned game version {parsed_pinned_game_version}");
+        compatible_with_pinned_game_version && compatible_with_pinned_mod_version
+        // check for pinned mod version compatibility
+    }).cloned().collect();
 
-        releases.iter().filter(|release| {
-            info!("Parsing and validating tags {:?}", release.tags);
+    info!("compatible_releases: {:?}", compatible_releases);
 
-            let result = release.tags.iter().any( |tag|
-                compare_versions(pinned_game_version, tag).unwrap()
-            );
+    if compatible_releases.is_empty() {
+        return Err(RustiqueError::NoVersionFound("Compatible versions not found based on pinned conditions".into()))
+    }
 
-            info!("Result from pinned_game_version pares check {result}");
-            result
-        }).cloned().collect()
-    };
 
-    info!("releases found for game version {:?}", pinned_game_res);
-
-    // filter out any version that doesn't match the pinned mod version
-    let pinned_mod_res = if mod_pkg.pinned_version.is_some() {
-        pinned_game_res.iter().filter(|r| {
-
-            let parsed_mod_version = parse_version(&r.mod_version.clone().unwrap_or(String::from("0.0.0")))
-                .map_err(|e| RustiqueError::SimpleError(format!("Failed to parse mod version {e}"))).unwrap();
-
-            VersionReq::parse(&mod_pkg.pinned_version.clone().unwrap_or(String::from("0.0.0")))
-                .map_err(|e| RustiqueError::SimpleError(format!("Failed to parse pinned mod version {e}"))).unwrap().matches(&parsed_mod_version)
-
-        }).cloned().collect()
-    } else {
-        pinned_game_res
-    };
-
-    let final_res = pinned_mod_res.iter().filter_map(|r| {
+    let final_res = compatible_releases.iter().filter_map(|r| {
         match parse_version(r.mod_version.as_ref().unwrap()) {
             Ok(v) => Some((v, r.main_file.clone(), r.tags.clone(), r.changelog.clone())),
             Err(e) => {
@@ -145,28 +121,16 @@ pub fn parse_pinned_version(releases: &Vec<Release>, mod_pkg: &Package, pinned_g
             }
         }
     }).max_by(|(v1,_,_, _),(v2,_,_,_)| v1.cmp(v2))
-                                  .map(|(latest_version, download_url, game_versions, changelog)| LatestVersionFound {
-          latest_version, 
-          download_url: download_url.clone(), 
+      .map(|(latest_version, download_url, game_versions, changelog)| LatestVersionFound {
+          latest_version,
+          download_url,
           game_versions,
           changelog
       });
 
-
-    return_version_results(final_res)
+    Ok(return_version_results(final_res))
 }
 
-fn return_version_results(result: Option<LatestVersionFound>) -> (ModVersion, DownloadURL, Vec<String>, String) {
-    match result {
-        Some(latest_versions_found) => (
-            latest_versions_found.latest_version.to_string(),
-            latest_versions_found.download_url.clone().unwrap_or_default(),
-            latest_versions_found.game_versions,
-            latest_versions_found.changelog.unwrap_or(String::new())
-        ),
-        None => (String::new(), String::new(), Vec::new(), String::new())
-    }
-}
 
 /*
     The semver library allows for wildcards, and >=, >, <=, <, = to compare versions strings.
@@ -187,7 +151,88 @@ fn return_version_results(result: Option<LatestVersionFound>) -> (ModVersion, Do
     This effectively means that rustique will ONLY download a mod for a stable (meaning non -pre/-rc) of the game,
     unless they explicitly pin the unstable version.
 
+    This method attempts to work around this limitation when comparing version strings by stripping
+    the pre-release off (assuming allow_unstable is set in the config) and comparing the major.minor.patch
+    only.
+
  */
+fn find_compatible_versions(pinned_condition: &str, versions_to_check: Vec<String>, allow_unstable: bool) -> Result<bool, RustiqueError> {
+
+    // version is compatible if there is no pinned_condition
+    if pinned_condition.is_empty() { return Ok(true); }
+
+    let parsed_condition = match VersionReq::parse(pinned_condition.as_ref()) {
+        Ok(v) => v,
+        Err(e) => {
+            return Err(RustiqueError::SimpleError(format!("Pinned condition ({}) parsing error {}", pinned_condition, e)));
+        }
+    };
+
+    let matches: Vec<Version> = versions_to_check.iter().filter_map(|v_str| {
+        let parsed_v = match lenient_semver::parse(v_str) {
+            Ok(v) => v,
+            Err(_) => {
+                println!("{} is not a valid semver format", v_str);
+                return None
+            },
+        };
+
+        if !parsed_v.pre.is_empty() && !allow_unstable {
+            println!("Skipping {parsed_v}");
+            return None
+        }
+
+        let check_version = if !parsed_v.pre.is_empty() && allow_unstable {
+            // strip the pre-releases to check against major.minor.patch
+            match Version::parse(&format!("{}.{}.{}", parsed_v.major, parsed_v.minor, parsed_v.patch)) {
+                Ok(stripped) => stripped,
+                Err(_) => return None, // Shouldn't happen as the original was parsed successfully,
+            }
+        } else {
+            parsed_v.clone()
+        };
+
+
+        if parsed_condition.matches(&check_version) {
+            Some(parsed_v)
+        } else { None }
+    }).collect();
+
+    // grab only the latest version IF more than 1 matches.
+    // easy if allow_unstable == false
+
+    let matched = match matches.iter().max() {
+        Some(m) => {
+            info!("Matched: {m}");
+            format!("{m}")
+        },
+        None => {
+            debug!("No valid version found for condition {}", pinned_condition);
+            String::new()
+        }
+    };
+
+    Ok(!matched.is_empty())
+}
+
+
+fn return_version_results(result: Option<LatestVersionFound>) -> (ModVersion, DownloadURL, Vec<String>, String) {
+    match result {
+        Some(latest_versions_found) => (
+            latest_versions_found.latest_version.to_string(),
+            latest_versions_found.download_url.clone().unwrap_or_default(),
+            latest_versions_found.game_versions,
+            latest_versions_found.changelog.unwrap_or(String::new())
+        ),
+        None => (String::new(), String::new(), Vec::new(), String::new())
+    }
+}
+
+
+
+
+
+
 pub fn compare_versions(pinned_version: &str, other_version: &str) -> Result<bool, RustiqueError> {
     // info!("Doing the compare_and_parse_versions");
     let x = VersionReq::parse(pinned_version).map_err(|e| RustiqueError::SimpleError(format!("Failed parsing pinned version in compare_and_parse {e}")))?;

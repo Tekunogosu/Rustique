@@ -184,10 +184,18 @@ pub async fn sync<V: AsRef<[Package]>>(mod_dir: impl PathRef, quiet: bool, pin_v
         } else {
             pin_versions.as_ref().iter().find(|p| p.mod_id.eq(&mod_id)).cloned().unwrap_or_default()
         };
+
+        info!("pkg in sync: {:?}", pkg);
         
         let (mod_version, download_url, game_versions, changelog) = if !pkg.mod_id.is_empty() || !config.pinned_game_version.is_empty() {
             info!("{} {}","Parsing pinned versions for".yellow(), mod_id.blue());
-            parse_pinned_version(&res_mod.mod_json.releases, &pkg, config.pinned_game_version.clone())
+            match parse_pinned_version(&res_mod.mod_json.releases, &pkg, config.pinned_game_version.clone().as_str(), true) {
+                Ok(pv) => pv,
+                Err(e) => {
+                    notice(format!("Unable to find compatible version for {mod_id}. {e}"), Some(Color::Yellow), vec![Attribute::Bold]);
+                    continue
+                }
+            }
         } else {
             info!("{} {}", "Parsing latest versions for".yellow(), mod_id.blue());
             parse_latest_version(&res_mod.mod_json.releases)

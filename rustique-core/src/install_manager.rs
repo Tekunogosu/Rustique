@@ -7,11 +7,13 @@ use crate::utils::{extract_zip_metadata, split_modid_version};
 use crate::version_management::{parse_latest_version, parse_pinned_version};
 use std::collections::{HashMap};
 use std::path::PathBuf;
+use comfy_table::{Attribute, Color};
 use futures::stream::{self, StreamExt};
 use indicatif::{ProgressBar, ProgressStyle};
 use tracing::{debug, error, info};
 use crate::config::config_manager::get_config;
 use crate::consts::FILE_MODINFO_JSON;
+use crate::information_utils::notice;
 use crate::sync_structs::ModSyncInfo;
 use crate::traits::ref_ext::PathRef;
 use crate::traits::string_ext::StrLowerExt;
@@ -216,7 +218,13 @@ pub async fn install_manager(
                 
                 let pkg = config.pkg.iter().find(|p| p.mod_id.eq(&res_mod.mod_json.mod_id.to_string()));
                 let (mod_version, download_url, _,_) = if let Some(mod_pkg) = pkg {
-                    parse_pinned_version(&res_mod.mod_json.releases, &mod_pkg.clone(), config.pinned_game_version.clone())
+                    match parse_pinned_version(&res_mod.mod_json.releases, &mod_pkg.clone(), config.pinned_game_version.clone().as_str(), true) {
+                        Ok(pv) => pv,
+                        Err(e) => {
+                            notice(format!("Unable to locate compatible versions for {} -- {}", res_mod.mod_json.mod_id, e), Some(Color::Red), vec![Attribute::Bold]);
+                            continue
+                        }
+                    }
                 } else {
                     parse_latest_version(&res_mod.mod_json.releases)
                 };

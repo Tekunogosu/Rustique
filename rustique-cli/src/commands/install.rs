@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use comfy_table::{Attribute, Color};
 use comfy_table::presets::UTF8_HORIZONTAL_ONLY;
 use rustique_core::aliases::{ModID, ModVersion};
 use rustique_core::api::client::ApiClient;
@@ -10,7 +11,7 @@ use rustique_core::utils::{extract_all_mods_metadata, gather_missing_dependencie
 use rustique_core::version_management::{parse_latest_version, parse_pinned_version};
 use tracing::{debug, info};
 use rustique_core::config::config_manager::{get_config, Package};
-use rustique_core::information_utils::{command_output, display_installation_results, display_table};
+use rustique_core::information_utils::{command_output, display_installation_results, display_table, notice};
 use rustique_core::traits::ref_ext::PathRef;
 
 // Report if trying install a mod that already exists
@@ -43,7 +44,7 @@ pub async fn install_cmd(mod_dir: impl PathRef, mods_requested: Vec<ModID>, _for
     }
 
     let mods_requested: Vec<Install> =
-        result.into_iter().map(|(mod_id, mod_info)| {
+        result.into_iter().filter_map(|(mod_id, mod_info)| {
             let pin_ver = if let Some(mod_version) =  mod_map.get(&mod_id) {
                 if mod_version.is_some() {
                     mod_version.clone()
@@ -66,15 +67,25 @@ pub async fn install_cmd(mod_dir: impl PathRef, mods_requested: Vec<ModID>, _for
             
             let pinned_game_ver = &config.pinned_game_version;
             
-            let (version, download_url, _,_) = parse_pinned_version(&mod_info.mod_json.releases, &pkg, pinned_game_ver);
+            let (version, download_url, _,_) = match parse_pinned_version(&mod_info.mod_json.releases, &pkg, pinned_game_ver, true) {
+                Ok(pv) => pv,
+                Err(e) => {
+                    notice(
+                        format!("Unable to install mod {} as there are no matching version compatible with your pinned condition. {e}", &mod_info.mod_json.mod_id)
+                        ,Some(Color::Yellow)
+                        ,vec![Attribute::Bold]
+                    );
+                    return None
+                },
+            };
             
-            Install {
+            Some(Install {
                 mod_id: mod_id.clone(),
                 mod_name: mod_info.mod_json.name.unwrap_or_default(),
                 version_to_install: version,
                 download_url: download_url.clone(),
                 current_file_path: None,
-            }
+            })
         }).collect();
 
 
