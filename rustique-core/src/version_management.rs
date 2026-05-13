@@ -4,11 +4,9 @@ use crate::rustique_errors::RustiqueError;
 use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use comfy_table::Color;
 use owo_colors::OwoColorize;
 use tracing::{debug, info};
 use crate::config::config_manager::Package;
-use crate::traits::ref_ext::StrRef;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct RustiquePkgs {

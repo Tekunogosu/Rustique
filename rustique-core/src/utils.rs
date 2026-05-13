@@ -15,7 +15,7 @@ use comfy_table::presets::UTF8_HORIZONTAL_ONLY;
 use dirs::home_dir;
 use futures::{StreamExt, stream};
 use owo_colors::OwoColorize;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 use std::process::exit;
 use serde_json::to_string_pretty;
@@ -259,13 +259,13 @@ pub fn sanitize_string(string: &str) -> String {
 
 // Helper function to get just installed dependencies by passing empty vec and hashmap to the parts that filter out dependencies
 pub fn gather_dependencies(installed_mods: &HashMap<ModFileName, ModInfo>) -> Vec<Install> {
-    gather_missing_dependencies(installed_mods, &[], &HashMap::new())
+    gather_missing_dependencies(installed_mods, &[], &BTreeMap::new())
 }
 
 pub fn gather_missing_dependencies<V: AsRef<[ModID]>>(
     installed_mods: &HashMap<ModFileName, ModInfo>,
     mods_requested: V,
-    sync_data: &HashMap<ModID, ModSyncInfo>,
+    sync_data: &BTreeMap<ModID, ModSyncInfo>,
 ) -> Vec<Install> {
     // if there are reports of slowness is this section .values().par_bridge()...flat_map_iter() could be used to speed it up
     // this is prob not an issue even with a lot of mods as the data is all in memory at this point

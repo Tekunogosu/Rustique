@@ -1,5 +1,5 @@
 use std::default::Default;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use serde::{Deserialize, Serialize};
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
@@ -12,14 +12,16 @@ use crate::utils::{get_current_time, prettify};
 #[derive(Deserialize, Serialize, Debug)]
 pub struct RustiqueSyncJson {
     #[serde(rename = "RustiqueSync")]
-    pub rustique_sync: HashMap<ModID, ModSyncInfo>,
+    pub rustique_sync: BTreeMap<ModID, ModSyncInfo>,
     pub last_sync: String,
 }
 
 impl Default for RustiqueSyncJson {
     fn default() -> Self {
         RustiqueSyncJson {
-            rustique_sync: HashMap::default(),
+            // converted from hashmap to btree to maintain sorted values. 
+            // *technically* btreemap is slower, but its so not noticeable, at least in testing.
+            rustique_sync: BTreeMap::default(), 
             last_sync: get_current_time()
         }
     }
@@ -31,10 +33,9 @@ impl RustiqueSyncJson {
     pub async fn save(&self, file_location: impl PathRef) -> Result<(), RustiqueError> {
        
         debug!("Attempting to save {:?}", self);
-
-
+        
         let json = prettify(self, "Sync")?;
-
+        
         // Use tokio's async file operations
         let mut file = File::create(&file_location)
             .await

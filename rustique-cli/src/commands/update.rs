@@ -2,7 +2,7 @@
 use crate::commands::sync::{get_sync_data};
 use owo_colors::OwoColorize;
 use comfy_table::{Attribute, Color};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::path::{PathBuf};
 use std::time::Instant;
 use tracing::debug;
@@ -36,7 +36,7 @@ pub async fn update_mods<V: AsRef<[ModID]>>(mod_dir: impl PathRef, update_mod_id
         })
         .collect();
     
-    let mut mods_to_check_update: HashMap<ModID, ModSyncInfo> = HashMap::new();
+    let mut mods_to_check_update: BTreeMap<ModID, ModSyncInfo> = BTreeMap::new();
     let mut updates_exist = false;
 
     if update_mod_ids.is_empty() {
@@ -60,7 +60,7 @@ pub async fn update_mods<V: AsRef<[ModID]>>(mod_dir: impl PathRef, update_mod_id
         return Err(RustiqueError::SimpleError(String::from("No valid update ids or the mod dir is empty..\n\r")))
     }
 
-    let all_installed_mods: HashMap<ModID, ModSyncInfo> = mods_to_check_update.clone();
+    let all_installed_mods: BTreeMap<ModID, ModSyncInfo> = mods_to_check_update.clone();
     debug!("all_installed_mods: {:#?}", all_installed_mods);
 
     let final_mod_update_list: Vec<Install> = mods_to_check_update

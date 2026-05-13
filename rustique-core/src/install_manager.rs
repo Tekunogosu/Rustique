@@ -5,7 +5,7 @@ use crate::api::download::download_requested_mods;
 use crate::rustique_errors::RustiqueError;
 use crate::utils::{extract_zip_metadata, split_modid_version};
 use crate::version_management::{parse_latest_version, parse_pinned_version};
-use std::collections::{HashMap};
+use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
 use comfy_table::{Attribute, Color};
 use futures::stream::{self, StreamExt};
@@ -66,7 +66,7 @@ impl Installed {
 pub async fn install_manager(
     mod_dir: impl PathRef,
     mods_requested: Vec<Install>,
-    installed_mods: HashMap<ModID, ModSyncInfo>) -> Result<Vec<Installed>, RustiqueError> {
+    installed_mods: BTreeMap<ModID, ModSyncInfo>) -> Result<Vec<Installed>, RustiqueError> {
 
     let mod_dir = mod_dir.as_ref(); 
     // this is the combined list of all mods installed, once download is completed, new mods will be

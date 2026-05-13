@@ -18,7 +18,7 @@ use rustique_core::utils::{extract_all_mods_metadata, extract_zip_metadata};
 use rustique_core::version_management::{
     parse_download_url_from_version, parse_latest_version, parse_pinned_version,
 };
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 use std::process::exit;
@@ -161,7 +161,7 @@ pub async fn mp_install(mp_id: ModID, mp_version: Option<ModVersion>) -> Result<
         
         debug!("Need to download {install_mp_mods:#?}");
 
-        let installed = install_manager(&modpack_mod_path, install_mp_mods, HashMap::new()).await?;
+        let installed = install_manager(&modpack_mod_path, install_mp_mods, BTreeMap::new()).await?;
        
         // Mod saved successfully, add it to the disabled mods so we know its installed
         

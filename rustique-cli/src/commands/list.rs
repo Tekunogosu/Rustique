@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fs::File;
 use std::io::{stdout, Write};
 use std::path::{Path, PathBuf};
@@ -139,7 +139,7 @@ pub async fn cmd_list(
     let sync_hashmap = if let Some(sd) = &sync_data {
         &sd.rustique_sync
     } else {
-        &HashMap::new()
+        &BTreeMap::new()
     };
     
     let missing_deps = gather_missing_dependencies(&installed_mods, &[], sync_hashmap);
