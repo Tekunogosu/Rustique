@@ -68,52 +68,56 @@ async fn set(args: &CommonArgs) {
     }
 
     if let Some(version) = &args.pin_game_version {
-
-        if VersionReq::parse(version).is_ok() {
-            config.pinned_game_version.clone_from(version);
-            save = true;
-            display_vec.push(command_output("config.pinned_game_version", version));
-        } else {
+        if VersionReq::parse(version).is_err() {
             notice(
-        "The version string you tried to pin is invalid. \
+                "The version string you tried to pin is invalid. \
                  Valid operators are: <, <=, >, >=, =. \
                  Wildcards (*) are supported for major, minor, or patch sections (e.g., '1.22.*'), \
                  but they cannot be used if the version includes pre-release identifiers (e.g., '-rc', '-pre', '-alpha').",
-                 Some(Color::Yellow),
+                Some(Color::Yellow),
                 vec![Attribute::Bold]
-);
+            );
+
+            return
         }
+
+        config.pinned_game_version.clone_from(version);
+        save = true;
+        display_vec.push(command_output("config.pinned_game_version", version));
+    }
+
+    if let Some(allow_unstable ) = &args.allow_unstable {
+        config.allow_unstable = *allow_unstable;
+        save = true;
+       display_vec.push(command_output("config.allow_unstable", allow_unstable.to_string()));
     }
 
     if let (Some(with_mod), Some(version)) = (&args.with_mod, &args.pin_version) {
-        let mut found = false;
+
+        if VersionReq::parse(version).is_err() {
+            notice(
+                "The version string you tried to pin is invalid. \
+                 Valid operators are: <, <=, >, >=, =. \
+                 Wildcards (*) are supported for major, minor, or patch sections (e.g., '0.1.*', '0.*.0'), \
+                 but they cannot be used if the version includes pre-release identifiers (e.g., '-rc', '-pre', '-alpha').",
+                Some(Color::Yellow),
+                vec![Attribute::Bold]
+            );
+            return
+        }
 
         if let Some(pkg) = config.pkg.iter_mut().find(|p| p.mod_id.eq_ignore_ascii_case(with_mod)) {
             pkg.pinned_version = Some(version.clone());
-            found = true;
-        }
-
-        if !found {
+        } else {
             config.pkg.push(Package {
-                mod_id: with_mod.clone().clone(),
+                mod_id: with_mod.clone(),
                 pinned_version: Some(version.clone()),
             });
         }
 
-        if VersionReq::parse(version).is_ok() {
-            save = true;
-            display_vec.push(command_output(format!("Pinned: {with_mod}"), version));
-            notice("Be sure to run the sync command to update Rustique's sync file to use the newly set pinned mod version.", Some(Color::Green), vec![]);
-        } else {
-           notice(
-        "The version string you tried to pin is invalid. \
-                 Valid operators are: <, <=, >, >=, =. \
-                 Wildcards (*) are supported for major, minor, or patch sections (e.g., '0.1.*', '0.*.0'), \
-                 but they cannot be used if the version includes pre-release identifiers (e.g., '-rc', '-pre', '-alpha').",
-                 Some(Color::Yellow),
-                vec![Attribute::Bold]);
-        }
-
+        save = true;
+        display_vec.push(command_output(format!("Pinned: {with_mod}"), version));
+        notice("Be sure to run the sync command to update Rustique's sync file to use the newly set pinned mod version.", Some(Color::Green), vec![]);
     }
 
     if let Some(val) = &args.show_execution_time {
@@ -229,6 +233,12 @@ async fn del(args: &DelArgs) {
         display_vec.push(command_output("config.pinned_game_version", defaults.pinned_game_version));
     }
 
+    if args.allow_unstable {
+        config.allow_unstable.clone_from(&defaults.allow_unstable);
+        save = true;
+        display_vec.push(command_output("config.allow_unstable", config.allow_unstable.to_string()));
+    }
+
     if args.mod_dir {
         config.mod_dir.clone_from(&defaults.mod_dir);
         save = true;
@@ -298,13 +308,14 @@ async fn del(args: &DelArgs) {
 async fn list() {
     let config = get_config().read().await;
     let display_vec: Vec<(CellData, CellData)> = vec![
-        command_output("config.mod_dir",                 config.mod_dir.to_string()),
-        command_output("config.backup_mods_dir",         config.backup_mods_dir.to_string()),
-        command_output("config.game_download_dir",       config.game_download_dir.to_string()),
+        command_output("config.mod_dir",                 &config.mod_dir),
+        command_output("config.backup_mods_dir",         &config.backup_mods_dir),
+        command_output("config.game_download_dir",       &config.game_download_dir),
         command_output("config.backup_mods",             config.backup_mods.to_string()),
         command_output("config.show_execution_time",     config.show_execution_time.to_string()),
         command_output("config.notify_of_unzipped_mods", config.notify_of_unzipped_mods.to_string()),
-        command_output("config.pinned_game_version",     config.pinned_game_version.to_string()),
+        command_output("config.pinned_game_version",     &config.pinned_game_version),
+        command_output("config.allow_unstable",          config.allow_unstable.to_string()),
         command_output("",""),
         command_output("config.check_for_updates",       config.check_for_updates.to_string()),
 
@@ -312,7 +323,7 @@ async fn list() {
         command_output("config.update_windows_default_loc", config.update_default_windows_loc.to_string()),
 
         command_output("",""),
-        command_output("config.modpacks.modpack_dir",    config.modpacks.modpack_dir.to_string()),
+        command_output("config.modpacks.modpack_dir",    &config.modpacks.modpack_dir),
         command_output("config.modpacks.enabled",        config.modpacks.enabled.join(",")),
         command_output("config.modpacks.disabled",       config.modpacks.disabled.join(",")),
     ];

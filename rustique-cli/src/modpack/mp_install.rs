@@ -81,9 +81,9 @@ pub async fn mp_install(mp_id: ModID, mp_version: Option<ModVersion>) -> Result<
                 mod_id: mp_id.clone(),
                 pinned_version: Some(pin_version),
             };
-            match parse_pinned_version(&mod_info.mod_json.releases, &pkg, "", true) {
+            match parse_pinned_version(&mod_info.mod_json.releases, &pkg, "", config.allow_unstable) {
                 Ok(pv) => pv,
-                Err(e) => return Err(RustiqueError::from(e))
+                Err(e) => return Err(e)
             }
         } else {
             debug!("Parsing latest version..");

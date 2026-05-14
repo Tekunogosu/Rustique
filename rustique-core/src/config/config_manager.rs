@@ -29,8 +29,13 @@ pub struct Config {
     #[serde(default)]
     pub pinned_game_version: String,
     // automatically zips mod folders that are unzipped during the sync process
+    
+    #[serde(default)]
+    pub allow_unstable: bool,
+    
     #[serde(default)]
     pub zip_mod_files: bool,
+    
     // create a backup of each mod before its updated.
     #[serde(default)]
     pub backup_mods: bool,
@@ -148,6 +153,7 @@ impl Default for Config {
                 .to_string_lossy()
                 .to_string(),
             pinned_game_version: String::new(), // if its empty then get the latest
+            allow_unstable: true, // users expect to install whatever version is available, so true by default
             zip_mod_files: false,
             backup_mods: false,
             backup_mods_dir: backup_mods_dir.to_string_lossy().to_string(),

@@ -28,6 +28,7 @@ pub struct LatestVersionFound {
     pub changelog: Option<String>,
 }
 
+// TODO: Needs to follow the config.allow_unstable option just as the parse_pinned_version method does.
 pub fn parse_latest_version(releases: &[Release]) -> PinnedVersionInfo {
     let mut errors :Vec<RustiqueError> = Vec::new();
 
@@ -159,7 +160,7 @@ fn find_compatible_versions(pinned_condition: &str, versions_to_check: Vec<Strin
     // version is compatible if there is no pinned_condition
     if pinned_condition.is_empty() { return Ok(true); }
 
-    let parsed_condition = match VersionReq::parse(pinned_condition.as_ref()) {
+    let parsed_condition = match VersionReq::parse(pinned_condition) {
         Ok(v) => v,
         Err(e) => {
             return Err(RustiqueError::SimpleError(format!("Pinned condition ({}) parsing error {}", pinned_condition, e)));
@@ -176,7 +177,7 @@ fn find_compatible_versions(pinned_condition: &str, versions_to_check: Vec<Strin
         };
 
         if !parsed_v.pre.is_empty() && !allow_unstable {
-            println!("Skipping {parsed_v}");
+            debug!("Skipping {parsed_v}");
             return None
         }
 

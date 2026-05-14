@@ -119,6 +119,10 @@ pub struct CommonArgs {
     /// Do you want rustique to check for updates automatically?
     #[arg(short, long, action = ArgAction::Set, value_parser = clap::value_parser!(bool), value_name = "CHECK")]
     pub check_for_updates: Option<bool>,
+
+    /// Allow ustable mods to be installed
+    #[arg(short, long, action = ArgAction::Set, value_parser = clap::value_parser!(bool), value_name = "ALLOW_UNSTABLE")]
+    pub allow_unstable: Option<bool>,
     
     // #[cfg(windows)]
     #[arg(short, long, value_parser = clap::value_parser!(bool), value_name = "SHOW")]
@@ -146,6 +150,10 @@ pub struct DelArgs {
     /// The highest game version Rustique will use to download mods
     #[arg(short, long)]
     pub pin_game_version: bool,
+    
+    /// Allow unstable mods
+    #[arg(short, long)]
+    pub allow_unstable: bool,
 
     /// Backup your mods before updating, preserves older versions
     #[arg(short, long)]

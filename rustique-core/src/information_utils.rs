@@ -230,3 +230,17 @@ pub fn elapsed_footer(start_time: Instant, operation: impl StrRef + std::fmt::Di
     println!("{table}");
 }
 
+pub fn display_incompatible_mods_constraint(incompatible_mods: Vec<String>, title: String) {
+    println!();
+    rustique_message(RustiqueMessage {
+        header: Some(
+            CellData::new(title,
+                          Some(Color::Yellow), vec![Attribute::Bold], Some(CellAlignment::Center))
+        ),
+        message: incompatible_mods.iter().map(|m| {
+            CellData::new(m.into(), Some(Color::Red), vec![], Some(CellAlignment::Left))
+        }).collect(),
+    });
+    println!();
+}
+

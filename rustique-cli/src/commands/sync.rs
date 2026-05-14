@@ -7,10 +7,10 @@ use std::time::{Instant};
 use comfy_table::presets::UTF8_HORIZONTAL_ONLY;
 use tracing::{debug, error, info, warn};
 use owo_colors::OwoColorize;
-use rustique_core::aliases::ModID;
+use rustique_core::aliases::{ModID, PinnedVersionInfo};
 use rustique_core::config::config_manager::{get_config, Config, Package};
 use rustique_core::consts::{FILE_GAME_VERSION_SYNC, FILE_MOD_SEARCH_SYNC, FILE_RUSTIQUE_SYNC};
-use rustique_core::information_utils::{display_table, elapsed_footer, notice, CellData};
+use rustique_core::information_utils::{display_incompatible_mods_constraint, display_table, elapsed_footer, notice, CellData};
 use rustique_core::symlink_manager::SymlinkManager;
 use rustique_core::traits::ref_ext::{PathRef};
 use rustique_core::api::api_structs::{Mod, ModsSearchFile};
@@ -171,6 +171,8 @@ pub async fn sync<V: AsRef<[Package]>>(mod_dir: impl PathRef, quiet: bool, pin_v
         .fetch_mods_parallel(
             sync_data.rustique_sync.keys().map(|m|split_modid_version(m).0.clone()).collect()
         ).await?;
+
+    let mut no_compatible_mods: Vec<String> = Vec::new();
     
     for (mod_id, res_mod) in &result {
 
@@ -189,10 +191,11 @@ pub async fn sync<V: AsRef<[Package]>>(mod_dir: impl PathRef, quiet: bool, pin_v
         
         let (mod_version, download_url, game_versions, changelog) = if !pkg.mod_id.is_empty() || !config.pinned_game_version.is_empty() {
             info!("{} {}","Parsing pinned versions for".yellow(), mod_id.blue());
-            match parse_pinned_version(&res_mod.mod_json.releases, &pkg, config.pinned_game_version.clone().as_str(), true) {
+            match parse_pinned_version(&res_mod.mod_json.releases, &pkg, config.pinned_game_version.as_str(), config.allow_unstable) {
                 Ok(pv) => pv,
                 Err(e) => {
-                    notice(format!("Unable to find compatible version for {mod_id}. {e}"), Some(Color::Yellow), vec![Attribute::Bold]);
+                    no_compatible_mods.push(format!("ModID: {mod_id} - AssetID: {mod_asset_id}"));
+                    info!("Unable to find compatible version for {mod_id}. {e}");
                     continue
                 }
             }
@@ -221,7 +224,11 @@ pub async fn sync<V: AsRef<[Package]>>(mod_dir: impl PathRef, quiet: bool, pin_v
                 .. Default::default()
             });
     }
-    
+
+    if !no_compatible_mods.is_empty() {
+        display_incompatible_mods_constraint(no_compatible_mods, "Faild sync for mods due to incompatible pinned constraints".into());
+    }
+
     sync_data.save(sync_file_path).await?;
    
     if config.show_execution_time && !quiet {

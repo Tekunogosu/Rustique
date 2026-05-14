@@ -218,7 +218,7 @@ pub async fn install_manager(
                 
                 let pkg = config.pkg.iter().find(|p| p.mod_id.eq(&res_mod.mod_json.mod_id.to_string()));
                 let (mod_version, download_url, _,_) = if let Some(mod_pkg) = pkg {
-                    match parse_pinned_version(&res_mod.mod_json.releases, &mod_pkg.clone(), config.pinned_game_version.clone().as_str(), true) {
+                    match parse_pinned_version(&res_mod.mod_json.releases, &mod_pkg.clone(), config.pinned_game_version.as_str(), config.allow_unstable) {
                         Ok(pv) => pv,
                         Err(e) => {
                             notice(format!("Unable to locate compatible versions for {} -- {}", res_mod.mod_json.mod_id, e), Some(Color::Red), vec![Attribute::Bold]);

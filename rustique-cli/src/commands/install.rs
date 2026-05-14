@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use comfy_table::{Attribute, Color};
+use comfy_table::{Attribute, CellAlignment, Color};
 use comfy_table::presets::UTF8_HORIZONTAL_ONLY;
 use rustique_core::aliases::{ModID, ModVersion};
 use rustique_core::api::client::ApiClient;
@@ -11,7 +11,7 @@ use rustique_core::utils::{extract_all_mods_metadata, gather_missing_dependencie
 use rustique_core::version_management::{parse_latest_version, parse_pinned_version};
 use tracing::{debug, info};
 use rustique_core::config::config_manager::{get_config, Package};
-use rustique_core::information_utils::{command_output, display_installation_results, display_table, notice};
+use rustique_core::information_utils::{command_output, display_incompatible_mods_constraint, display_installation_results, display_table, notice, rustique_message, CellData, RustiqueMessage};
 use rustique_core::traits::ref_ext::PathRef;
 
 // Report if trying install a mod that already exists
@@ -25,6 +25,7 @@ pub async fn install_cmd(mod_dir: impl PathRef, mods_requested: Vec<ModID>, _for
     
     // do this first as we need to strip the @ if it exists
     let mod_map: HashMap<ModID, Option<ModVersion>> = mods_requested.iter().map(split_modid_version).collect();
+    let mut no_compatible_mods: Vec<String> = Vec::new();
     
     
     // get sync data
@@ -67,14 +68,13 @@ pub async fn install_cmd(mod_dir: impl PathRef, mods_requested: Vec<ModID>, _for
             
             let pinned_game_ver = &config.pinned_game_version;
             
-            let (version, download_url, _,_) = match parse_pinned_version(&mod_info.mod_json.releases, &pkg, pinned_game_ver, true) {
+            let (version, download_url, _,_) = match parse_pinned_version(&mod_info.mod_json.releases, &pkg, pinned_game_ver, config.allow_unstable) {
                 Ok(pv) => pv,
                 Err(e) => {
-                    notice(
-                        format!("Unable to install mod {} as there are no matching version compatible with your pinned condition. {e}", &mod_info.mod_json.mod_id)
-                        ,Some(Color::Yellow)
-                        ,vec![Attribute::Bold]
-                    );
+                    let mod_str = format!("{}\t- {}", &mod_info.mod_json.mod_id, &mod_info.mod_json.name.clone().unwrap_or(String::new()));
+                    no_compatible_mods.push(String::from(mod_str.trim()));
+                    info!("Incompatible mod constraints for {mod_str} {e}");
+
                     return None
                 },
             };
@@ -88,6 +88,12 @@ pub async fn install_cmd(mod_dir: impl PathRef, mods_requested: Vec<ModID>, _for
             })
         }).collect();
 
+
+    // Collect mods that have no compatible version into a vec and display them in a nice table to avoid message spam
+
+    if !no_compatible_mods.is_empty() {
+        display_incompatible_mods_constraint(no_compatible_mods, "Failed to install mods due to pinned constraints".into());
+    }
 
     info!("Mods requested {:?}", mods_requested);
 
