@@ -10,7 +10,7 @@ use crate::traits::ref_ext::{PathRef, StrRef};
 use crate::version_management::parse_version;
 use async_zip::tokio::read::fs::ZipFileReader;
 use chrono::{DateTime, Duration, NaiveDateTime, Utc};
-use comfy_table::Color;
+use comfy_table::{Color, Attribute};
 use comfy_table::presets::UTF8_HORIZONTAL_ONLY;
 use dirs::home_dir;
 use futures::{StreamExt, stream};
@@ -18,6 +18,7 @@ use owo_colors::OwoColorize;
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 use std::process::exit;
+use semver::VersionReq;
 use serde_json::to_string_pretty;
 use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -511,22 +512,35 @@ pub fn split_modid_version(mod_id_str: impl StrRef) -> (ModID, Option<ModVersion
         .unwrap_or(mod_id_str.as_ref())
         .split_once('@')
     {
-        let Ok(p_ver) = parse_version(version) else {
-            // version was bad, return error and quit
-            notice(
+         let version = if !has_semver_operator(version) {
+            format!("={version}")
+        } else { version.to_string() };
+
+        let p_ver = match VersionReq::parse(&version) {
+            Ok(v) => v,
+            Err(e) => {
+                notice(
                 format!(
-                    "Failed to parse {}, invalid version. Needs to be in the format [1.2.3] (MAJOR.MINOR.PATCH)",
-                    mod_id_str.as_ref()
+                    "{} - failed to parse {}, invalid semver version. See https://semver.org for valid semver standards",
+                    mod_id_str.as_ref(), version
                 ),
                 Some(Color::Red),
-                vec![],
+                vec![Attribute::Bold],
             );
-            exit(1);
+                exit(1)
+            }
         };
+
         return (modid.to_string(), Some(p_ver.to_string()));
     }
 
     (mod_id_str.as_ref().to_string().to_lowercase(), None)
+}
+
+pub fn has_semver_operator(s: &str) -> bool {
+    matches!(s.chars().next(), Some('^' | '<' | '>' | '=')) ||
+    s.starts_with("<=") ||
+    s.starts_with(">=")
 }
 
 pub fn format_for_csv(input: impl StrRef) -> String {

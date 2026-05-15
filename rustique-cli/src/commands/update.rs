@@ -2,10 +2,11 @@
 use crate::commands::sync::{get_sync_data};
 use owo_colors::OwoColorize;
 use comfy_table::{Attribute, Color};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::{PathBuf};
 use std::time::Instant;
 use tracing::debug;
+use tracing::span::Attributes;
 use rustique_core::config::config_manager::get_config;
 use rustique_core::information_utils::{display_installation_results, elapsed_footer, notice};
 use rustique_core::sync_structs::ModSyncInfo;
@@ -33,6 +34,7 @@ pub async fn update_mods<V: AsRef<[ModID]>>(mod_dir: impl PathRef, update_mod_id
             } else {
                 Some((split_modid_version(mod_id).0, sync_info))
             }
+
         })
         .collect();
     
@@ -44,14 +46,14 @@ pub async fn update_mods<V: AsRef<[ModID]>>(mod_dir: impl PathRef, update_mod_id
         updates_exist = true;
     } else {
         for typed_mod_id in update_mod_ids {
-            let mod_sync_data = &sync_data;
+
             // user typed in a valid typed_mod_id so violet is happy now
             let typed_mod_id = typed_mod_id.to_lowercase();
-            if mod_sync_data.contains_key(&typed_mod_id) {
-                mods_to_check_update.entry(typed_mod_id.clone()).or_insert(mod_sync_data[&typed_mod_id].clone());
+            if sync_data.contains_key(&typed_mod_id) {
+                mods_to_check_update.entry(typed_mod_id.clone()).or_insert(sync_data[&typed_mod_id].clone());
                 updates_exist = true;
             } else {
-                println!("{} is not a valid mod_id!", &typed_mod_id.red());
+                notice(format!("{} is not a installed mod, check your modid and try again", typed_mod_id.red()), Some(Color::Yellow), vec![Attribute::Bold]);
             }
         }
     }
@@ -97,7 +99,6 @@ pub async fn update_mods<V: AsRef<[ModID]>>(mod_dir: impl PathRef, update_mod_id
     
     display_installation_results(mods_processed);
 
-    
 
     if config.show_execution_time {
         elapsed_footer(start_time, "Update");

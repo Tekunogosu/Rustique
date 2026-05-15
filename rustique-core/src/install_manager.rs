@@ -63,6 +63,19 @@ impl Installed {
 }
 
 
+/*
+   Dependency resolution needs to be reworked entirely. The install manager is very simple and fails
+   to get all dependencies under certain circumstances.
+   The other issue is that the dependency versions being installed don't actually match what is in the
+   modinfo.json file, instead it installs the latest version UNLESS that dependency is pinned and even then
+   it could fail to install the dependency.
+
+   A full dependency graph needs to be createds so we can check for collisions and make decisions about
+   those collisions.
+   Like: what do we do if mod A and mod B have the same dependency but mod B requires a newer version??
+   Likely prompt the user if they would like to install the version from mod A or mod B and handle it from there.
+*/
+
 pub async fn install_manager(
     mod_dir: impl PathRef,
     mods_requested: Vec<Install>,

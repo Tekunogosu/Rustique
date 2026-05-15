@@ -46,10 +46,15 @@ pub async fn install_cmd(mod_dir: impl PathRef, mods_requested: Vec<ModID>, _for
 
     let mods_requested: Vec<Install> =
         result.into_iter().filter_map(|(mod_id, mod_info)| {
-            let pin_ver = if let Some(mod_version) =  mod_map.get(&mod_id) {
+            let mod_id = mod_id.to_lowercase();
+            println!("Trying to install {mod_id}");
+            let pinned_version = if let Some(mod_version) =  mod_map.get(&mod_id) {
                 if mod_version.is_some() {
-                    mod_version.clone()
+                    println!("Mod {mod_id} version found {}", mod_version.clone().unwrap());
+                    
+                    Some(mod_version.clone().unwrap())
                 } else if let Some(package) = config.pkg.iter().find(|package| package.mod_id == mod_id) {
+                    println!("Mod {mod_id} package found {package:?}");
                     package.pinned_version.clone()
                 } else {
                     None
@@ -61,7 +66,7 @@ pub async fn install_cmd(mod_dir: impl PathRef, mods_requested: Vec<ModID>, _for
             
             let pkg = Package {
                 mod_id: mod_id.clone(),
-                pinned_version: pin_ver.clone(),
+                pinned_version,
             };
             
             info!("pkg: {:?}", pkg);
@@ -78,14 +83,19 @@ pub async fn install_cmd(mod_dir: impl PathRef, mods_requested: Vec<ModID>, _for
                     return None
                 },
             };
-            
-            Some(Install {
+
+            let x =  Install {
                 mod_id: mod_id.clone(),
                 mod_name: mod_info.mod_json.name.unwrap_or_default(),
                 version_to_install: version,
                 download_url: download_url.clone(),
                 current_file_path: None,
-            })
+            };
+
+            println!("Installing.. {x:?}");
+
+            Some(x)
+
         }).collect();
 
 

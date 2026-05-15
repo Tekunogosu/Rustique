@@ -85,7 +85,46 @@ pub fn parse_version(mod_version: &str) -> Result<Version, RustiqueError> {
 }
 
 
-pub fn parse_pinned_version(mod_releases: &Vec<Release>, mod_config_pkg: &Package, pinned_game_version: &str, allow_unstable: bool) -> Result<PinnedVersionInfo, RustiqueError> {
+pub fn parse_pinned_version(mod_releases: &[Release], mod_pkg: &Package, pinned_game_version: &str, allow_unstable: bool) -> Result<PinnedVersionInfo, RustiqueError> {
+
+
+    // VersionReq pinned_game_version and the mod_pkg.pinned_version so it doesn't have to be parsed repeatedly when checking
+    // the mod_releases
+
+    let mut check_pinned_game_version= false;
+    let mut check_pinned_mod_version = false;
+
+    let parsed_pinned_game_version = if !pinned_game_version.is_empty() {
+        match VersionReq::parse(pinned_game_version) {
+            Ok(v) => {
+                check_pinned_game_version = true;
+                v
+            },
+            Err(e) => {
+                return Err(RustiqueError::SimpleError(format!("Pinned Game Version ({}) parsing error {}", pinned_game_version, e)));
+            }
+        }
+    } else {
+        VersionReq::default()
+    };
+
+    let parsed_pinned_mod_version = if let Some(mpv) = &mod_pkg.pinned_version {
+        match VersionReq::parse(mpv) {
+            Ok(v) => {
+                check_pinned_mod_version = true;
+                v
+            } ,
+            Err(e) => {
+               return Err(RustiqueError::SimpleError(format!("Pinned mod Version ({}) parsing error {}", mpv, e)));
+            }
+        }
+    } else {
+        VersionReq::default()
+    };
+
+
+    println!("Pinned game version to check {parsed_pinned_game_version}");
+    println!("Pinned mod version to check {parsed_pinned_mod_version}");
 
     // filter once
     // iterate through releases
@@ -93,11 +132,12 @@ pub fn parse_pinned_version(mod_releases: &Vec<Release>, mod_config_pkg: &Packag
     let compatible_releases : Vec<Release> =  mod_releases.iter().filter(|release| {
         // check for pinned game version compatibility
 
+        let compatible_with_pinned_game_version = if check_pinned_game_version {
+            find_compatible_versions(&parsed_pinned_game_version, release.tags.clone(), allow_unstable).unwrap_or(false)
+        } else { true };
 
-        let compatible_with_pinned_game_version = find_compatible_versions(pinned_game_version, release.tags.clone(), allow_unstable).unwrap_or(false);
-
-        let compatible_with_pinned_mod_version = if let Some(pinned_mod_version) = &mod_config_pkg.pinned_version {
-            find_compatible_versions(pinned_mod_version, vec![release.mod_version.clone().unwrap_or("0.0.0".into())], allow_unstable).unwrap_or(false)
+        let compatible_with_pinned_mod_version = if check_pinned_mod_version {
+            find_compatible_versions(&parsed_pinned_mod_version, vec![release.mod_version.clone().unwrap_or("0.0.0".into())], allow_unstable).unwrap_or(false)
         } else { true };
 
         compatible_with_pinned_game_version && compatible_with_pinned_mod_version
@@ -155,17 +195,20 @@ pub fn parse_pinned_version(mod_releases: &Vec<Release>, mod_config_pkg: &Packag
     only.
 
  */
-fn find_compatible_versions(pinned_condition: &str, versions_to_check: Vec<String>, allow_unstable: bool) -> Result<bool, RustiqueError> {
+fn find_compatible_versions(parsed_condition: &VersionReq, versions_to_check: Vec<String>, allow_unstable: bool) -> Result<bool, RustiqueError> {
+
+    // if user installs a mod with modid@version, VersionReq treats a version 1.2.3 the same as >=1.2.3
+    // This causes a later version to be installed
 
     // version is compatible if there is no pinned_condition
-    if pinned_condition.is_empty() { return Ok(true); }
-
-    let parsed_condition = match VersionReq::parse(pinned_condition) {
-        Ok(v) => v,
-        Err(e) => {
-            return Err(RustiqueError::SimpleError(format!("Pinned condition ({}) parsing error {}", pinned_condition, e)));
-        }
-    };
+    // if pinned_condition.is_empty() { return Ok(true); }
+    //
+    // let parsed_condition = match VersionReq::parse(pinned_condition) {
+    //     Ok(v) => v,
+    //     Err(e) => {
+    //         return Err(RustiqueError::SimpleError(format!("Pinned condition ({}) parsing error {}", pinned_condition, e)));
+    //     }
+    // };
 
     let matches: Vec<Version> = versions_to_check.iter().filter_map(|v_str| {
         let parsed_v = match lenient_semver::parse(v_str) {
@@ -206,7 +249,7 @@ fn find_compatible_versions(pinned_condition: &str, versions_to_check: Vec<Strin
             format!("{m}")
         },
         None => {
-            debug!("No valid version found for condition {}", pinned_condition);
+            debug!("No valid version found for condition {}", parsed_condition);
             String::new()
         }
     };
