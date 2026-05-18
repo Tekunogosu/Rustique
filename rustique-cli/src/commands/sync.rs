@@ -226,7 +226,7 @@ pub async fn sync<V: AsRef<[Package]>>(mod_dir: impl PathRef, quiet: bool, pin_v
     }
 
     if !no_compatible_mods.is_empty() {
-        display_incompatible_mods_constraint(no_compatible_mods, "Faild sync for mods due to incompatible pinned constraints".into());
+        display_incompatible_mods_constraint(no_compatible_mods, "Failed sync for mods due to incompatible pinned constraints".into());
     }
 
     sync_data.save(sync_file_path).await?;

@@ -518,7 +518,7 @@ pub fn split_modid_version(mod_id_str: impl StrRef) -> (ModID, Option<ModVersion
 
         let p_ver = match VersionReq::parse(&version) {
             Ok(v) => v,
-            Err(e) => {
+            Err(_) => {
                 notice(
                 format!(
                     "{} - failed to parse {}, invalid semver version. See https://semver.org for valid semver standards",

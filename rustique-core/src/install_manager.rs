@@ -5,7 +5,7 @@ use crate::api::download::download_requested_mods;
 use crate::rustique_errors::RustiqueError;
 use crate::utils::{extract_zip_metadata, split_modid_version};
 use crate::version_management::{parse_latest_version, parse_pinned_version};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::path::PathBuf;
 use comfy_table::{Attribute, Color};
 use futures::stream::{self, StreamExt};
@@ -63,125 +63,100 @@ impl Installed {
 }
 
 
-/*
-   Dependency resolution needs to be reworked entirely. The install manager is very simple and fails
-   to get all dependencies under certain circumstances.
-   The other issue is that the dependency versions being installed don't actually match what is in the
-   modinfo.json file, instead it installs the latest version UNLESS that dependency is pinned and even then
-   it could fail to install the dependency.
+#[derive(Debug, Clone)]
+pub struct Requester {
+    pub mod_id: ModID,
+    pub required_version: ModVersion,
+}
 
-   A full dependency graph needs to be createds so we can check for collisions and make decisions about
-   those collisions.
-   Like: what do we do if mod A and mod B have the same dependency but mod B requires a newer version??
-   Likely prompt the user if they would like to install the version from mod A or mod B and handle it from there.
-*/
+#[derive(Debug, Clone)]
+pub struct ResolvedDep {
+    pub mod_id: ModID,
+    pub mod_name: ModName,
+    pub version_to_install: ModVersion,
+    pub download_url: DownloadURL,
+    pub requesters: Vec<Requester>,
+}
 
-pub async fn install_manager(
-    mod_dir: impl PathRef,
-    mods_requested: Vec<Install>,
-    installed_mods: BTreeMap<ModID, ModSyncInfo>) -> Result<Vec<Installed>, RustiqueError> {
+pub type DependencyGraph = HashMap<ModID, ResolvedDep>;
 
-    let mod_dir = mod_dir.as_ref(); 
-    // this is the combined list of all mods installed, once download is completed, new mods will be
-    // added here
-    let mut total_mods_seen: HashMap<ModID, Installed> = HashMap::with_capacity(installed_mods.len());
-    for (mod_id, mod_sync_info) in &installed_mods {
-        // this is what is already on the system
-        // the version doesn't really matter, we just need to know modid and filepath, which the
-        // info from sync would provide that
+pub async fn resolve_dependencies(
+    mod_dir: &std::path::Path,
+    initial_mods: Vec<Install>,
+    installed_mods: &BTreeMap<ModID, ModSyncInfo>,
+    client: &ApiClient,
+    pb: &ProgressBar,
+) -> Result<(DependencyGraph, Vec<Installed>), RustiqueError> {
+    let config = get_config().read().await;
+    let mut graph: DependencyGraph = HashMap::new();
+    let mut queue: VecDeque<Install> = VecDeque::new();
+    let mut all_installed: Vec<Installed> = Vec::new();
+
+    // seed graph with already-installed mods so BFS skips them
+    for (mod_id, sync_info) in installed_mods {
         let (mod_id, _) = split_modid_version(mod_id);
-        total_mods_seen.insert(mod_id.clone(),Installed {
+        graph.insert(mod_id.to_lowercase(), ResolvedDep {
             mod_id: mod_id.clone(),
-            mod_name: mod_sync_info.mod_name.clone(),
-            installed_file_path: Some(mod_dir.join(mod_sync_info.file_name.clone())),
-            success: true,
-            old_file_path: Some(mod_dir.join(mod_sync_info.file_name.clone())),
-            install_version: mod_sync_info.installed_version.clone(),
+            mod_name: sync_info.mod_name.clone(),
+            version_to_install: sync_info.installed_version.clone(),
+            download_url: String::new(),
+            requesters: vec![Requester {
+                mod_id: String::from("installed"),
+                required_version: sync_info.installed_version.clone(),
+            }],
         });
     }
 
-
-    // info!("total_mods_seen: {:#?}", total_mods_seen);
-    // info!("mods_requested: {:#?}", mods_requested);
-
-    let client = ApiClient::new();
-    let config = get_config().read().await;
-
-    // This vec is filled and then consumed within download_requested_mods
-    // each iteration of the loop will add new mods from dependencies to be processed next
-    let mut mods_requested = mods_requested.clone();
-
-    // Hold all the mods that were processed during this request.
-    // We let the calling function handle what to do with failed installs
-    let mut mods_processed: Vec<Installed> = Vec::new();
-
-    let mut passes = 0;
-    
-    let pb = ProgressBar::new(mods_requested.len() as u64);
-    pb.set_style(
-        ProgressStyle::default_bar()
-            .template("{spinner:.green} [{elapsed_precise:.cyan}] [{bar:.blue/grey:40}] {pos:.green}/{len:.cyan} {msg:.yellow}")
-            .unwrap()
-            .progress_chars("█▒░")
-    );
-    pb.set_message("Downloading...");
-    
-    loop {
-
-        // this function will consume each value out of the mods_requested so we can rebuild it
-        // after the dependencies check
-       let recently_installed: Vec<Installed> =  match download_requested_mods(mod_dir, &mut mods_requested, &client, Some(&pb)).await {
-            Ok(processed_mods) => {
-                debug!("Successfully installed mods: {:?}", processed_mods);
-                // update recently installed so we can get the dependencies
-                mods_processed.extend(processed_mods.clone());
-                processed_mods
-            }
-            Err(err) => {
-                // TODO: This needs to be handled better I think..
-                error!("Failed to install mods: {:?}", err);
-                Vec::new()
-            }
-        };
-
-        // add recently seen to total_mods_seen
-
-        for installed in &recently_installed {
-            total_mods_seen.insert(installed.mod_id.clone(), installed.clone());
+    // seed queue with initially requested mods
+    // so they are "seen" before the first download pass
+    for install in initial_mods {
+        let key = install.mod_id.to_lowercase();
+        if !graph.contains_key(&key) {
+            graph.insert(key, ResolvedDep {
+                mod_id: install.mod_id.clone(),
+                mod_name: install.mod_name.clone(),
+                version_to_install: install.version_to_install.clone(),
+                download_url: install.download_url.clone(),
+                requesters: vec![Requester {
+                    mod_id: String::from("user"),
+                    required_version: install.version_to_install.clone(),
+                }],
+            });
+            queue.push_back(install);
         }
+    }
 
+    let concurrent_limit = num_cpus::get();
 
-        // extract the modinfojson from recently_installed and gather the dependencies.
-        // subtract any dependency which already resides in total seen mods
+    while !queue.is_empty() {
+        let mut batch: Vec<Install> = queue.drain(..).collect();
 
-        let concurrent_limit = num_cpus::get();
+        let recently_installed = download_requested_mods(mod_dir, &mut batch, client, Some(pb))
+            .await
+            .unwrap_or_else(|err| {
+            error!("Failed to install batch: {:?}", err);
+            Vec::new()
+        });
+        all_installed.extend(recently_installed.clone());
 
-        // clone the keys we need as the async functions won't work with our hashmap, and its cheap to clone hashsets
-        let seen_mod_ids: std::collections::HashSet<String> = total_mods_seen.keys().map(|k| k.to_lowercase()).collect();
-
+        // read modinfo.json from each downloaded mod to discover dependencies
         #[allow(clippy::redundant_closure)]
-        let dep_map: Vec<HashMap<String, String>> = stream::iter(recently_installed.iter())
-            .map( |installed_mod| {
-                let seen_mod_ids = seen_mod_ids.clone(); // this cheaper than cloning the entire hashmap, logic stays the same
+        let dep_maps: Vec<HashMap<String, String>> = stream::iter(recently_installed.iter())
+            .map(|installed_mod| {
                 async move {
                     let path = installed_mod.installed_file_path.clone()?;
                     match extract_zip_metadata::<ModInfo>(&path, FILE_MODINFO_JSON).await {
                         Ok(mod_info) => {
-                            let filtered_deps: HashMap<_, _> = mod_info.dependencies
+                            let deps: HashMap<_, _> = mod_info.dependencies
                                 .into_iter()
                                 .filter(|(dep_id, _)| {
                                     !dep_id.lower_contains("game")
                                         && !dep_id.lower_contains("creative")
                                         && !dep_id.lower_contains("survival")
-                                        && !seen_mod_ids.contains(dep_id.to_lowercase().as_str())
-                                }).collect();
-
-                            if filtered_deps.is_empty() {
-                                None
-                            } else {
-                                Some(filtered_deps)
-                            }
-                        },
+                                })
+                                .collect();
+                            if deps.is_empty() { None } else { Some(deps) }
+                        }
                         Err(err) => {
                             error!("Failed to extract zip metadata: {:?}", err);
                             None
@@ -194,69 +169,106 @@ pub async fn install_manager(
             .collect()
             .await;
 
+        // flatten all deps from every mod in the batch into a single HashMap
+        // hashmap collects deduplicates by key, so shared deps across mods only appear once
+        // filter already-seen mods (those in graph) before collecting
+        let new_deps: HashMap<String, String> = dep_maps
+            .into_iter()
+            .flat_map(|deps| deps.into_iter())
+            .filter(|(dep_id, _)| !graph.contains_key(&dep_id.to_lowercase()))
+            .collect();
 
-            let mut needed_dependencies: Vec<Install> = dep_map
-                .into_iter()
-                .flat_map(|deps| deps.into_iter())
-                .map(|(mod_id, mod_version)| Install {
-                    mod_id,
-                    mod_name: String::new(),
-                    version_to_install: mod_version,
-                    download_url: String::new(),
-                    current_file_path: None,
-            }).collect();
-
-        passes += 1;
-        info!("pass: {}, needed_dependencies : {:?}", passes, needed_dependencies);
-
-        if needed_dependencies.is_empty() {
-            break;
+        if new_deps.is_empty() {
+            continue;
         }
 
-        // obtain the download_urls for the currently needed dependencies and then pass it back to mods_requested
-        let mod_ids: Vec<ModID> = needed_dependencies.iter().map(|dep| dep.mod_id.clone()).collect();
-        let result: HashMap<ModID, Mod> = client.fetch_mods_parallel(mod_ids).await?;
+        let mod_ids: Vec<ModID> = new_deps.keys().cloned().collect();
+        let api_results: HashMap<ModID, Mod> = client.fetch_mods_parallel(mod_ids).await?;
 
-        // info!("Mod api fetch result: {:#?}", result);
+        for (dep_id, required_version) in &new_deps {
+            let key = dep_id.to_lowercase();
+            if graph.contains_key(&key) {
+                continue;
+            }
 
-        // add the result to the mods_requested
-        // obtain the latest download url
-        // and the mod name from the HashMap and update the values in needed_deps
-        // then dump needed_deps into requested_mods
+            if let Some(api_mod) = api_results.get(dep_id.as_str()) {
+                let mod_name = api_mod.mod_json.name.clone().unwrap_or_default();
+                // println!("Mod name {mod_name}");
+                // the url alias IS the mod ID in MOST cases. Need a check for validity
+                let mod_id = if let Some(mod_alias) = &api_mod.mod_json.url_alias {
+                    mod_alias
+                } else  {
+                    &api_mod.mod_json.mod_id.clone().to_string()
+                };
 
-        //TODO: double check needed values are present
-        for mod_to_install in &mut needed_dependencies {
-            if let Some(res_mod) =  result.get(mod_to_install.mod_id.as_str()) {
-                mod_to_install.mod_name = res_mod.mod_json.name.clone().unwrap_or_default();
-                
-                let pkg = config.pkg.iter().find(|p| p.mod_id.eq(&res_mod.mod_json.mod_id.to_string()));
-                let (mod_version, download_url, _,_) = if let Some(mod_pkg) = pkg {
-                    match parse_pinned_version(&res_mod.mod_json.releases, &mod_pkg.clone(), config.pinned_game_version.as_str(), config.allow_unstable) {
+                let pkg = config.pkg.iter().find(|p| p.mod_id.eq(mod_id));
+
+                let (version, url, _, _) = if let Some(mod_pkg) = pkg {
+                    // println!("Parse_pinned_version {:?}", mod_pkg);
+                    match parse_pinned_version(&api_mod.mod_json.releases, &mod_pkg.clone(), config.pinned_game_version.as_str(), config.allow_unstable) {
                         Ok(pv) => pv,
                         Err(e) => {
-                            notice(format!("Unable to locate compatible versions for {} -- {}", res_mod.mod_json.mod_id, e), Some(Color::Red), vec![Attribute::Bold]);
-                            continue
+                            notice(format!("Unable to locate compatible versions for {} -- {}", dep_id, e), Some(Color::Red), vec![Attribute::Bold]);
+                            continue;
                         }
                     }
                 } else {
-                    parse_latest_version(&res_mod.mod_json.releases)
+                    // println!("parse_latest_version");
+                    parse_latest_version(&api_mod.mod_json.releases)
                 };
-                mod_to_install.download_url = download_url;
-                mod_to_install.version_to_install = mod_version;
+
+                // println!("Trying to download {} from {}", version, url);
+
+                // insert into graph BEFORE pushing to queue — this prevents a dep discovered
+                // by two mods in the same batch from being queued twice
+                graph.insert(key, ResolvedDep {
+                    mod_id: dep_id.clone(),
+                    mod_name: mod_name.clone(),
+                    version_to_install: version.clone(),
+                    download_url: url.clone(),
+                    requesters: vec![Requester {
+                        mod_id: String::from("dependency"),
+                        required_version: required_version.clone(),
+                    }],
+                });
+
+                pb.inc_length(1);
+                queue.push_back(Install {
+                    mod_id: dep_id.clone(),
+                    mod_name,
+                    version_to_install: version,
+                    download_url: url,
+                    current_file_path: None,
+                });
             }
         }
-        // increase the total length of the progress bar as there are more things to download
-        pb.inc_length(needed_dependencies.len() as u64);
-        // seed the mods_requested and go again
-        mods_requested.extend(needed_dependencies);
     }
 
-    // TODO: Figure out why sometimes items show up twice, even if they are installed once
-    mods_processed.sort_by(|a, b| a.mod_name.to_lowercase().cmp(&b.mod_name.to_lowercase()));
-    mods_processed.dedup_by(|a,b| a.mod_id == b.mod_id);
+    Ok((graph, all_installed))
+}
 
-    
+pub async fn install_manager(
+    mod_dir: impl PathRef,
+    mods_requested: Vec<Install>,
+    installed_mods: BTreeMap<ModID, ModSyncInfo>) -> Result<Vec<Installed>, RustiqueError> {
+
+    let mod_dir = mod_dir.as_ref();
+    let client = ApiClient::new();
+
+    let pb = ProgressBar::new(mods_requested.len() as u64);
+    pb.set_style(
+        ProgressStyle::default_bar()
+            .template("{spinner:.green} [{elapsed_precise:.cyan}] [{bar:.blue/grey:40}] {pos:.green}/{len:.cyan} {msg:.yellow}")
+            .unwrap()
+            .progress_chars("█▒░")
+    );
+    pb.set_message("Downloading...");
+
+    let (_, mut mods_processed) = resolve_dependencies(mod_dir, mods_requested, &installed_mods, &client, &pb).await?;
+
+    mods_processed.sort_by(|a, b| a.mod_name.to_lowercase().cmp(&b.mod_name.to_lowercase()));
+
     pb.finish_with_message("Finished installing mods");
-    
+
     Ok(mods_processed)
 }

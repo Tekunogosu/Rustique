@@ -123,8 +123,8 @@ pub fn parse_pinned_version(mod_releases: &[Release], mod_pkg: &Package, pinned_
     };
 
 
-    println!("Pinned game version to check {parsed_pinned_game_version}");
-    println!("Pinned mod version to check {parsed_pinned_mod_version}");
+    // println!("Pinned game version to check {parsed_pinned_game_version}");
+    // println!("Pinned mod version to check {parsed_pinned_mod_version}");
 
     // filter once
     // iterate through releases
