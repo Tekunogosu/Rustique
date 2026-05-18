@@ -16,7 +16,6 @@ use rustique_core::traits::ref_ext::PathRef;
 
 // Report if trying install a mod that already exists
 // Use -f to force an installation
-// add way to set the version you want to download
 pub async fn install_cmd(mod_dir: impl PathRef, mods_requested: Vec<ModID>, _force: bool) -> Result<(), RustiqueError> {
     let mod_dir = mod_dir.as_ref();
     info!("install_cmd: {mods_requested:?}");
@@ -47,14 +46,14 @@ pub async fn install_cmd(mod_dir: impl PathRef, mods_requested: Vec<ModID>, _for
     let mods_requested: Vec<Install> =
         result.into_iter().filter_map(|(mod_id, mod_info)| {
             let mod_id = mod_id.to_lowercase();
-            println!("Trying to install {mod_id}");
+            // println!("Trying to install {mod_id}");
             let pinned_version = if let Some(mod_version) =  mod_map.get(&mod_id) {
                 if mod_version.is_some() {
-                    println!("Mod {mod_id} version found {}", mod_version.clone().unwrap());
+                    // println!("Mod {mod_id} version found {}", mod_version.clone().unwrap());
                     
                     Some(mod_version.clone().unwrap())
                 } else if let Some(package) = config.pkg.iter().find(|package| package.mod_id == mod_id) {
-                    println!("Mod {mod_id} package found {package:?}");
+                    // println!("Mod {mod_id} package found {package:?}");
                     package.pinned_version.clone()
                 } else {
                     None
@@ -92,7 +91,7 @@ pub async fn install_cmd(mod_dir: impl PathRef, mods_requested: Vec<ModID>, _for
                 current_file_path: None,
             };
 
-            println!("Installing.. {x:?}");
+            info!("Installing.. {x:?}");
 
             Some(x)
 

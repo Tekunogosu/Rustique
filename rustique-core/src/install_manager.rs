@@ -9,7 +9,7 @@ use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::path::PathBuf;
 use comfy_table::{Attribute, Color};
 use futures::stream::{self, StreamExt};
-use indicatif::{ProgressBar, ProgressStyle};
+use indicatif::MultiProgress;
 use tracing::{debug, error, info};
 use crate::config::config_manager::get_config;
 use crate::consts::FILE_MODINFO_JSON;
@@ -85,7 +85,7 @@ pub async fn resolve_dependencies(
     initial_mods: Vec<Install>,
     installed_mods: &BTreeMap<ModID, ModSyncInfo>,
     client: &ApiClient,
-    pb: &ProgressBar,
+    mp: &MultiProgress,
 ) -> Result<(DependencyGraph, Vec<Installed>), RustiqueError> {
     let config = get_config().read().await;
     let mut graph: DependencyGraph = HashMap::new();
@@ -126,12 +126,13 @@ pub async fn resolve_dependencies(
         }
     }
 
+
     let concurrent_limit = num_cpus::get();
 
     while !queue.is_empty() {
         let mut batch: Vec<Install> = queue.drain(..).collect();
 
-        let recently_installed = download_requested_mods(mod_dir, &mut batch, client, Some(pb))
+        let recently_installed = download_requested_mods(mod_dir, &mut batch, client, Some(mp))
             .await
             .unwrap_or_else(|err| {
             error!("Failed to install batch: {:?}", err);
@@ -232,7 +233,6 @@ pub async fn resolve_dependencies(
                     }],
                 });
 
-                pb.inc_length(1);
                 queue.push_back(Install {
                     mod_id: dep_id.clone(),
                     mod_name,
@@ -254,21 +254,11 @@ pub async fn install_manager(
 
     let mod_dir = mod_dir.as_ref();
     let client = ApiClient::new();
+    let mp = MultiProgress::new();
 
-    let pb = ProgressBar::new(mods_requested.len() as u64);
-    pb.set_style(
-        ProgressStyle::default_bar()
-            .template("{spinner:.green} [{elapsed_precise:.cyan}] [{bar:.blue/grey:40}] {pos:.green}/{len:.cyan} {msg:.yellow}")
-            .unwrap()
-            .progress_chars("█▒░")
-    );
-    pb.set_message("Downloading...");
-
-    let (_, mut mods_processed) = resolve_dependencies(mod_dir, mods_requested, &installed_mods, &client, &pb).await?;
+    let (_, mut mods_processed) = resolve_dependencies(mod_dir, mods_requested, &installed_mods, &client, &mp).await?;
 
     mods_processed.sort_by(|a, b| a.mod_name.to_lowercase().cmp(&b.mod_name.to_lowercase()));
-
-    pb.finish_with_message("Finished installing mods");
 
     Ok(mods_processed)
 }

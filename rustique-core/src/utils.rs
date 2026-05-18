@@ -538,7 +538,7 @@ pub fn split_modid_version(mod_id_str: impl StrRef) -> (ModID, Option<ModVersion
 }
 
 pub fn has_semver_operator(s: &str) -> bool {
-    matches!(s.chars().next(), Some('^' | '<' | '>' | '=')) ||
+    matches!(s.chars().next(), Some('^' | '<' | '>' | '=' | '~')) ||
     s.starts_with("<=") ||
     s.starts_with(">=")
 }
