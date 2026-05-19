@@ -30,7 +30,8 @@ pub async fn download_requested_mods(mod_dir: &Path, mods_requested: &mut Vec<In
                     .unwrap()
                     .progress_chars("█▒░")
             );
-            pb.set_message(mod_request.mod_name.clone());
+            let msg = format!("({}) : {}", mod_request.version_to_install, mod_request.mod_name.clone());
+            pb.set_message(msg);
             pb
         });
 
@@ -49,7 +50,8 @@ pub async fn download_requested_mods(mod_dir: &Path, mods_requested: &mut Vec<In
                 Ok(installed_path) => {
                     info!("{} {}: {}", "Successfully downloaded mod".bright_green(), mod_request.mod_id.magenta(), installed_path.display().to_string().bright_yellow());
                     if let Some(pb) = bar {
-                        pb.finish_with_message(mod_request.mod_name.bright_green().to_string());
+                        let msg = format!("({}) : {}", mod_request.version_to_install, mod_request.mod_name.bright_green());
+                        pb.finish_with_message(msg);
                     }
                     installed.installed_file_path = Some(installed_path);
                     installed.success = true;
@@ -58,7 +60,8 @@ pub async fn download_requested_mods(mod_dir: &Path, mods_requested: &mut Vec<In
                 Err(e) => {
                     warn!("Failed to download mod: {}, {}", mod_request.download_url, e);
                     if let Some(pb) = bar {
-                        pb.finish_with_message(mod_request.mod_name.bright_red().to_string());
+                        let msg = format!("({}) : {}", mod_request.version_to_install, mod_request.mod_name.bright_red());
+                        pb.finish_with_message(msg);
                     }
                     installed.clone()
                 }
