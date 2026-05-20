@@ -124,7 +124,7 @@ pub struct CommonArgs {
     #[arg(short, long, action = ArgAction::Set, value_parser = clap::value_parser!(bool), value_name = "ALLOW_UNSTABLE")]
     pub allow_unstable: Option<bool>,
     
-    // #[cfg(windows)]
+    #[cfg(windows)]
     #[arg(short, long, value_parser = clap::value_parser!(bool), value_name = "SHOW")]
     pub update_default_windows_loc: Option<bool>
 }
