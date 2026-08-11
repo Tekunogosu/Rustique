@@ -5,7 +5,6 @@ use crate::consts::FILE_MODINFO_JSON;
 use owo_colors::OwoColorize;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
-use std::sync::Arc;
 use std::time::Duration;
 use tracing::{debug, error, info};
 use std::fmt::Write;
@@ -24,7 +23,7 @@ pub const RUSTIQUE_USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!(
 
 #[derive(Debug, Clone)]
 pub struct ApiClient {
-    agent: Arc<reqwest::Client>,
+    agent: reqwest::Client,
 }
 
 #[derive(Debug, Clone, ValueEnum)]
@@ -66,17 +65,15 @@ pub enum VSWinInstallerType {
 impl ApiClient {
     pub fn new() -> Self {
         Self {
-            agent: Arc::new(
-                reqwest::Client::builder()
-                    .timeout(Duration::from_secs(20))
-                    .user_agent(RUSTIQUE_USER_AGENT)
-                    .build()
-                    .expect("Failed to build HTTP client")
-            ),
+            agent: reqwest::Client::builder()
+                .timeout(Duration::from_secs(20))
+                .user_agent(RUSTIQUE_USER_AGENT)
+                .build()
+                .expect("Failed to build HTTP client"),
         }
     }
 
-    pub fn _with_agent(agent: Arc<reqwest::Client>) -> Self {
+    pub fn _with_agent(agent: reqwest::Client) -> Self {
         Self { agent }
     }
 
